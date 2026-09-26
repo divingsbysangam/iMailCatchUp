@@ -1,0 +1,18 @@
+{
+  "name": "imailcatchup",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted iCloud Mail reader with evening AI briefs and web push, for a single user.",
+  "license": "MIT",
+  "workspaces": ["server", "web"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "test": "npm run test -w server",
+    "setup": "npm run setup -w server"
+  }
+}
