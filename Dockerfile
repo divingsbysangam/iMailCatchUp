@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Build ----------
-FROM node:22-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 # Toolchain only needed if better-sqlite3 has no prebuilt binary for this platform.
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 # ---------- Runtime ----------
-FROM node:22-bookworm-slim
+FROM node:26-bookworm-slim
 ENV NODE_ENV=production \
     DATABASE_PATH=/data/app.db \
     WEB_ROOT=/app/web/dist
