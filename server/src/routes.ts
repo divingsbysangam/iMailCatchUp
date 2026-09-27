@@ -4,12 +4,18 @@ import type { BriefContentV2, BriefItem } from "./brief.js";
 import { categoryLabel, slotLabel } from "./categories.js";
 import type { AppContext } from "./context.js";
 import { kvGet } from "./db.js";
-import { flushSeen } from "./mail.js";
+import { ImageProxyError, fetchImage } from "./imageproxy.js";
+import { fetchSource, flushSeen, type StoredLocation } from "./mail.js";
 import { refreshMail } from "./pipeline.js";
 import { sendPushToAll } from "./push.js";
 import { localNow, runBrief } from "./scheduler.js";
+import { attachmentList, contentDisposition, downloadType, parseMessage, RENDER_VERSION, type AttachmentInfo } from "./view.js";
 
 const IdParam = z.object({ id: z.coerce.number().int().positive() });
+/** How long opening an older email waits for iCloud before showing the stored copy. */
+const REFRESH_TIMEOUT_MS = 8_000;
+const AttachmentParam = IdParam.extend({ index: z.coerce.number().int().min(0).max(500) });
+const ImageQuery = z.object({ u: z.string().min(1).max(4096) });
 const DateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const ListQuery = z.object({
@@ -130,15 +136,93 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get("/api/messages/:id", async (req, reply) => {
     const p = IdParam.safeParse(req.params);
     if (!p.success) return reply.code(400).send({ error: "Bad id" });
-    const r = db.prepare("SELECT * FROM messages WHERE id = ?").get(p.data.id) as Record<string, unknown> | undefined;
+    let r = db.prepare("SELECT * FROM messages WHERE id = ?").get(p.data.id) as Record<string, unknown> | undefined;
     if (!r) return reply.code(404).send({ error: "Not found" });
+    if ((r.render_v as number) < RENDER_VERSION) {
+      // Stored before embedded images and attachments were kept: re-read it from iCloud once.
+      try {
+        // Don't keep the reader waiting on a slow iCloud: fall back to the stored copy after a few seconds.
+        const source = await Promise.race([
+          fetchSource(ctx, r as unknown as StoredLocation),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error("iCloud took too long")), REFRESH_TIMEOUT_MS).unref()),
+        ]);
+        if (source) {
+          const view = await parseMessage(source);
+          db.prepare("UPDATE messages SET html_enc = ?, attachments_enc = ?, has_attachments = ?, render_v = ? WHERE id = ?").run(
+            cipher.encryptNullable(view.html),
+            cipher.encrypt(JSON.stringify(attachmentList(view))),
+            view.files.length ? 1 : 0,
+            RENDER_VERSION,
+            p.data.id,
+          );
+          r = db.prepare("SELECT * FROM messages WHERE id = ?").get(p.data.id) as Record<string, unknown>;
+        } else {
+          // No longer in iCloud: keep showing the stored copy without asking again.
+          db.prepare("UPDATE messages SET render_v = ? WHERE id = ?").run(RENDER_VERSION, p.data.id);
+        }
+      } catch (err) {
+        req.log.warn({ err: (err as Error).message }, "could not refresh email from iCloud; showing stored copy");
+      }
+    }
+    const attachments = r.attachments_enc ? (JSON.parse(cipher.decrypt(r.attachments_enc as string)) as AttachmentInfo[]) : [];
     return {
       ...summaryRow(r),
       mailbox: r.mailbox,
       to: JSON.parse(r.to_json as string),
       text: cipher.decryptNullable(r.text_enc as string | null),
       html: cipher.decryptNullable(r.html_enc as string | null),
+      attachments,
     };
+  });
+
+  /** Download an attachment. Fetched from iCloud on demand; attachments are never stored here. */
+  app.get(
+    "/api/messages/:id/attachments/:index",
+    { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const p = AttachmentParam.safeParse(req.params);
+      if (!p.success) return reply.code(400).send({ error: "Bad request" });
+      const r = db.prepare("SELECT mailbox, uid_validity, uid, message_id, archived FROM messages WHERE id = ?").get(p.data.id) as
+        | StoredLocation
+        | undefined;
+      if (!r) return reply.code(404).send({ error: "Not found" });
+      let source: Buffer | null;
+      try {
+        source = await fetchSource(ctx, r);
+      } catch (err) {
+        req.log.error({ err: (err as Error).message }, "attachment download failed");
+        return reply.code(502).send({ error: "Couldn't reach iCloud. Try again." });
+      }
+      if (!source) return reply.code(404).send({ error: "This email is no longer in iCloud." });
+      const view = await parseMessage(source);
+      const file = view.files[p.data.index];
+      const info = attachmentList(view)[p.data.index];
+      if (!file || !info) return reply.code(404).send({ error: "Attachment not found" });
+      return reply
+        .header("Content-Type", downloadType(file.contentType))
+        .header("Content-Disposition", contentDisposition(info.filename))
+        .header("X-Content-Type-Options", "nosniff")
+        .header("Content-Security-Policy", "default-src 'none'; sandbox")
+        .send(file.content);
+    },
+  );
+
+  /** Private image proxy for remote images in emails (see imageproxy.ts). */
+  app.get("/api/img", { config: { rateLimit: { max: 600, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const q = ImageQuery.safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: "Bad request" });
+    try {
+      const img = await fetchImage(q.data.u);
+      return reply
+        .header("Content-Type", img.contentType)
+        .header("Cache-Control", "private, max-age=86400")
+        .header("X-Content-Type-Options", "nosniff")
+        .header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+        .send(img.body);
+    } catch (err) {
+      const status = err instanceof ImageProxyError ? err.status : 502;
+      return reply.code(status).send({ error: "Image unavailable" });
+    }
   });
 
   /**

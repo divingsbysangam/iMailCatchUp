@@ -1,5 +1,5 @@
 // Service worker: offline app shell + Web Push. Mail/brief data (/api) is never cached.
-const CACHE = "imc-shell-v3";
+const CACHE = "imc-shell-v4";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {

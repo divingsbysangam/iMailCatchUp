@@ -93,6 +93,11 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (mailbox, uid_validity, uid)
   );
   `,
+  `
+  -- Attachment list (encrypted JSON) and which rendering of the email is stored (see view.ts).
+  ALTER TABLE messages ADD COLUMN attachments_enc TEXT;
+  ALTER TABLE messages ADD COLUMN render_v INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export function openDb(path: string): DB {
