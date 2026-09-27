@@ -1,5 +1,5 @@
 // Service worker: offline app shell + Web Push. Mail/brief data (/api) is never cached.
-const CACHE = "imc-shell-v1";
+const CACHE = "imc-shell-v2";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", "/icon-192.png"];
 
 self.addEventListener("install", (event) => {
@@ -33,7 +33,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  let data = { title: "iMailCatchUp", body: "", url: "/#/briefs", tag: undefined };
+  let data = { title: "iMailCatchUp", body: "", url: "/#/brief", tag: undefined };
   try {
     data = { ...data, ...event.data.json() };
   } catch {}

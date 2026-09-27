@@ -2,79 +2,94 @@ import { useEffect, useState } from "react";
 import { api, type Status } from "../api";
 import { currentSubscription, disablePush, enablePush, pushSupported } from "../push";
 
-export function Settings({ onSignedOut }: { onSignedOut: () => void }) {
-  const [status, setStatus] = useState<Status | null>(null);
+export function Settings({ status, onSignedOut, onChange }: { status: Status | null; onSignedOut: () => void; onChange: () => void }) {
   const [pushOn, setPushOn] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const refresh = async () => {
-    setStatus(await api.get<Status>("/api/status"));
-    setPushOn(!!(await currentSubscription()));
-  };
-  useEffect(() => void refresh().catch((e) => setMsg((e as Error).message)), []);
+  useEffect(() => {
+    void currentSubscription().then((s) => setPushOn(!!s));
+  }, []);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setMsg(null);
     try {
       await fn();
-      setMsg(ok);
-      await refresh();
+      setMsg({ ok: true, text: ok });
+      setPushOn(!!(await currentSubscription()));
+      onChange();
     } catch (err) {
-      setMsg((err as Error).message);
+      setMsg({ ok: false, text: (err as Error).message });
     }
   };
 
   const standalone = window.matchMedia("(display-mode: standalone)").matches;
+  const synced = status?.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "never";
 
   return (
-    <section className="settings">
-      <header className="bar"><h1>Settings</h1></header>
-      {msg && <p className="notice">{msg}</p>}
+    <>
+      <section className="page-head">
+        <p className="eyebrow">Settings</p>
+        <h1 tabIndex={-1}>How your briefs arrive.</h1>
+        {msg && <p className={msg.ok ? "note-line" : "error-line"} role="status">{msg.text}</p>}
+      </section>
 
-      <h2>Notifications</h2>
-      {!pushSupported() ? (
-        <p className="muted">This browser doesn't support push. Use Chrome on Android.</p>
-      ) : (
-        <>
-          {!standalone && <p className="muted small">Tip: in Chrome, tap ⋮ → "Add to Home screen" / "Install app" for the best experience.</p>}
-          <div className="buttons">
-            {pushOn ? (
-              <button onClick={() => run(disablePush, "Notifications disabled on this device.")}>Disable on this device</button>
-            ) : (
-              <button onClick={() => run(enablePush, "Notifications enabled on this device.")}>Enable on this device</button>
-            )}
-            <button disabled={!pushOn} onClick={() => run(() => api.post("/api/push/test"), "Test notification sent.")}>Send test</button>
-          </div>
-        </>
-      )}
-
-      <h2>Status</h2>
-      {status && (
+      <section className="section" aria-labelledby="set-push">
+        <div className="section-head"><h2 id="set-push">Notifications on this device</h2></div>
         <dl>
-          <dt>Evening brief</dt>
-          <dd>{status.briefTime} ({status.briefTimezone})</dd>
-          <dt>Last sync</dt>
-          <dd>{status.lastSyncAt ? new Date(status.lastSyncAt).toLocaleString() : "never"}</dd>
-          {status.lastSyncError && (
-            <>
-              <dt>Last sync error</dt>
-              <dd className="error">{status.lastSyncError.message}</dd>
-            </>
-          )}
-          <dt>Folders</dt>
-          <dd>{status.mailboxes.join(", ")}</dd>
-          <dt>Devices with notifications</dt>
-          <dd>{status.pushDevices}</dd>
+          <div className="kv">
+            <dt>Status</dt>
+            <dd>
+              {!pushSupported() ? "This browser can't receive push notifications. Use Chrome on Android." : pushOn ? "On" : "Off"}
+              {pushSupported() && !standalone && <p className="coord" style={{ marginTop: 8 }}>Tip: Chrome ⋮ → Install app, for the best experience</p>}
+            </dd>
+          </div>
         </dl>
-      )}
+        {pushSupported() && (
+          <div className="foot-actions">
+            {pushOn ? (
+              <button type="button" className="btn ghost" onClick={() => run(disablePush, "Notifications are off on this device.")}>Turn off</button>
+            ) : (
+              <button type="button" className="btn" onClick={() => run(enablePush, "Notifications are on for this device.")}>Turn on</button>
+            )}
+            <button type="button" className="btn ghost" disabled={!pushOn} onClick={() => run(() => api.post("/api/push/test"), "Test notification sent.")}>
+              Send a test
+            </button>
+          </div>
+        )}
+      </section>
 
-      <h2>Session</h2>
-      <div className="buttons">
-        <button onClick={() => run(() => api.post("/api/auth/logout"), "").then(onSignedOut)}>Sign out</button>
-        <button className="danger" onClick={() => confirm("Sign out on every device?") && run(() => api.post("/api/auth/logout-all"), "").then(onSignedOut)}>
-          Sign out everywhere
-        </button>
-      </div>
-    </section>
+      <section className="section" aria-labelledby="set-status">
+        <div className="section-head"><h2 id="set-status">Status</h2></div>
+        {status && (
+          <dl>
+            <div className="kv"><dt>Briefs</dt><dd>{status.briefTimes.map((b) => `${b.label} ${b.time}`).join(" · ")} ({status.briefTimezone})</dd></div>
+            <div className="kv"><dt>Last sync</dt><dd>{synced}</dd></div>
+            {status.lastSyncError && (
+              <div className="kv"><dt>Last sync error</dt><dd><span className="error-line" style={{ display: "block", marginTop: 0 }}>{status.lastSyncError.message}</span></dd></div>
+            )}
+            <div className="kv"><dt>Mail</dt><dd>{status.mailboxes.join(", ")} · {status.unreadOnly ? "unread only" : "all mail"}</dd></div>
+            <div className="kv">
+              <dt>Archiving in iCloud</dt>
+              <dd>{status.autoArchive ? `On. Brief mail is marked read and moved to “${status.archiveFolder}”.` : "Off. Nothing in iCloud is changed."}</dd>
+            </div>
+            <div className="kv"><dt>Devices with notifications</dt><dd>{status.pushDevices}</dd></div>
+          </dl>
+        )}
+      </section>
+
+      <section className="section" aria-labelledby="set-session">
+        <div className="section-head"><h2 id="set-session">Session</h2></div>
+        <div className="foot-actions" style={{ marginTop: 0 }}>
+          <button type="button" className="btn ghost" onClick={() => run(() => api.post("/api/auth/logout"), "").then(onSignedOut)}>Sign out</button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => confirm("Sign out on every device?") && run(() => api.post("/api/auth/logout-all"), "").then(onSignedOut)}
+          >
+            Sign out everywhere
+          </button>
+        </div>
+      </section>
+    </>
   );
 }

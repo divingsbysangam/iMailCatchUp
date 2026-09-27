@@ -2,8 +2,6 @@
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 
-const BLUE = [0x1d, 0x4e, 0xd8, 255];
-const WHITE = [255, 255, 255, 255];
 
 function crc32(buf) {
   let c, crc = 0xffffffff;
@@ -37,26 +35,14 @@ function png(size, pixel) {
     chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0)),
   ]);
 }
-function roundedInside(u, v, r) {
-  const cx = Math.min(Math.max(u, r), 1 - r), cy = Math.min(Math.max(v, r), 1 - r);
-  return (u - cx) ** 2 + (v - cy) ** 2 <= r * r;
+// Field System brand mark: the safety-orange square on a white ground (no gradients, no rounding).
+const WHITE = [255, 255, 255, 255];
+const SAFETY = [0xe2, 0x3b, 0x12, 255];
+function icon(markFraction) {
+  const lo = 0.5 - markFraction / 2, hi = 0.5 + markFraction / 2;
+  return (u, v) => (u >= lo && u < hi && v >= lo && v < hi ? SAFETY : WHITE);
 }
-function distToSeg(px, py, ax, ay, bx, by) {
-  const t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2)));
-  return Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)));
-}
-// scale: envelope size relative to icon (smaller for maskable safe zone)
-function icon(scale, rounded) {
-  return (u, v) => {
-    if (rounded && !roundedInside(u, v, 0.22)) return [0, 0, 0, 0];
-    const x = 0.5 + (u - 0.5) / scale, y = 0.5 + (v - 0.5) / scale;
-    const inEnv = x > 0.19 && x < 0.81 && y > 0.28 && y < 0.72;
-    if (!inEnv) return BLUE;
-    const onFlap = Math.min(distToSeg(x, y, 0.2, 0.31, 0.5, 0.53), distToSeg(x, y, 0.5, 0.53, 0.8, 0.31)) < 0.032;
-    return onFlap ? BLUE : WHITE;
-  };
-}
-writeFileSync("public/icon-192.png", png(192, icon(1, true)));
-writeFileSync("public/icon-512.png", png(512, icon(1, true)));
-writeFileSync("public/icon-maskable-512.png", png(512, icon(0.7, false)));
+writeFileSync("public/icon-192.png", png(192, icon(0.34)));
+writeFileSync("public/icon-512.png", png(512, icon(0.34)));
+writeFileSync("public/icon-maskable-512.png", png(512, icon(0.26)));
 console.log("icons written");

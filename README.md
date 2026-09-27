@@ -1,6 +1,6 @@
 # iMailCatchUp
 
-Self-hosted, single-user **iCloud Mail reader** with an **AI evening brief** delivered as a **push notification** to your Android phone.
+Self-hosted, single-user **iCloud Mail reader** with an **AI screener** and **twice-daily briefs** delivered as **push notifications** to your Android phone. Styled with the Divings Field System.
 
 - 📬 Read your iCloud inbox from any browser; install it on Android as an app (PWA)
 - 🌙 Every evening, GPT summarises the day's mail: headline, highlights, to-dos
@@ -10,7 +10,8 @@ Self-hosted, single-user **iCloud Mail reader** with an **AI evening brief** del
 ```
 iCloud IMAP ──(read-only, TLS)──▶ Server (Node/Fastify) ──▶ SQLite (encrypted fields)
                                     │  every 10 min: sync
-                                    │  at BRIEF_TIME: OpenAI → brief → Web Push ──▶ 📱
+                                    │  AI screener: "Needs you" vs. brief (+ optional iCloud archiving)
+                                    │  at BRIEF_TIMES: brief → Web Push ──▶ 📱
                                     ▼
                           PWA (React) served by the same server
 ```
@@ -39,7 +40,7 @@ iCloud IMAP ──(read-only, TLS)──▶ Server (Node/Fastify) ──▶ SQLi
    - `NODE_ENV=production`
    - `PUBLIC_ORIGIN=https://<your-domain>` (exactly the URL you open; no trailing path)
    - `DATABASE_PATH=/data/app.db`
-   - `BRIEF_TIME` / `BRIEF_TIMEZONE`, e.g. `19:00` / `Asia/Kolkata`
+   - `BRIEF_TIMES` / `BRIEF_TIMEZONE`, e.g. `08:30,18:00` / `Asia/Kolkata`
    - the secrets from step 1
    - Don't set `PORT`: Railway provides it.
 5. Deploy. `/healthz` should return `{"ok":true}`.
@@ -52,7 +53,13 @@ Keep it at **1 replica**: SQLite and the scheduler assume a single instance.
 2. Chrome menu ⋮ → **Add to Home screen / Install app**.
 3. Open the app → **Settings → Enable on this device** → allow notifications → **Send test**.
 
-The evening brief arrives at `BRIEF_TIME`. If the server was down then, it runs as soon as the server is back (same day).
+Briefs arrive at each of `BRIEF_TIMES`. If the server was down at a brief time, the most recent missed brief runs as soon as it's back.
+
+### How mail is handled
+
+- Every new unread email is **screened** by the AI: mail from people expecting a reply goes to **Needs you**; everything else (bills, receipts, calendar, newsletters, notifications…) waits for the next **brief**, grouped by category with a one-line summary.
+- Mark anything as a **to-do**; it stays on the To-dos page until you tick it off.
+- With `AUTO_ARCHIVE=true`, brief-bound mail is also marked read and moved to `ARCHIVE_FOLDER` in iCloud, so your iCloud inbox only holds what needs you. This gives the app write access to your mailbox; only mail received after you switch it on is moved.
 You can also tap **Brief me now** on the Briefs tab.
 
 ### Optional: put it behind Cloudflare
@@ -78,7 +85,8 @@ See [`.env.example`](.env.example) for every variable. Highlights:
 | Variable | Default | Notes |
 |---|---|---|
 | `OPENAI_MODEL` | `gpt-5-mini` | Any chat-completions model that supports JSON mode |
-| `BRIEF_TIME` / `BRIEF_TIMEZONE` | `19:00` / `UTC` | 24h time, IANA time zone |
+| `BRIEF_TIMES` / `BRIEF_TIMEZONE` | `BRIEF_TIME` (19:00) / `UTC` | Comma-separated 24h times, IANA time zone |
+| `AUTO_ARCHIVE` / `ARCHIVE_FOLDER` | `false` / `iMailCatchUp Brief` | Move brief-bound mail out of the iCloud inbox |
 | `MAILBOXES` | `INBOX` | Comma-separated IMAP folders |
 | `SYNC_DAYS` | `14` | How much mail is kept locally |
 | `SYNC_UNREAD_ONLY` | `true` | Only unread mail is synced; mail you read elsewhere is removed on the next sync |
