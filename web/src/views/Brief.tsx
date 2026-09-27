@@ -120,7 +120,7 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
   const row = (item: BriefItem, note?: string) => {
     const live = detail?.live[item.emailId];
     return (
-      <li className={`row${live?.stored ? " link" : ""}`} key={`${note ? "i" : "s"}${item.emailId}`} onClick={live?.stored ? rowClick(item.emailId) : undefined}>
+      <li className={`row${live?.stored ? " link" : " read"}`} key={`${note ? "i" : "s"}${item.emailId}`} onClick={live?.stored ? rowClick(item.emailId) : undefined}>
         <div className="row-main">
           <div className="row-top">
             {live?.stored ? (
@@ -134,10 +134,12 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
         </div>
         <div className="row-side">
           {item.highlight && <span className="fact">{item.highlight}</span>}
-          {live?.stored && (
+          {live?.stored ? (
             <button type="button" className="mark" aria-pressed={live.todo} onClick={() => toggleTodo(item.emailId)}>
               {live.todo ? "On to-dos" : "To-do"}
             </button>
+          ) : (
+            <span className="coord">Read</span>
           )}
         </div>
       </li>

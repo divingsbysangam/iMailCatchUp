@@ -83,6 +83,16 @@ const MIGRATIONS: string[] = [
   ALTER TABLE briefs ADD COLUMN slot TEXT;
   ALTER TABLE briefs ADD COLUMN done_at INTEGER;
   `,
+  `
+  -- Emails read in the app, waiting to be marked \\Seen in iCloud. Sync never re-downloads these.
+  CREATE TABLE pending_seen (
+    mailbox       TEXT    NOT NULL,
+    uid_validity  TEXT    NOT NULL,
+    uid           INTEGER NOT NULL,
+    added_at      INTEGER NOT NULL,
+    PRIMARY KEY (mailbox, uid_validity, uid)
+  );
+  `,
 ];
 
 export function openDb(path: string): DB {

@@ -102,6 +102,7 @@ export interface Status {
   mailboxes: string[];
   unreadOnly: boolean;
   autoArchive: boolean;
+  markReadOnOpen: boolean;
   archiveFolder: string;
   counts: { needsYou: number; waitingForBrief: number; todos: number };
   pushDevices: number;

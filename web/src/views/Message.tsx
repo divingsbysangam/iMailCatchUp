@@ -20,8 +20,45 @@ function buildSrcDoc(html: string): string {
 </head><body>${clean}</body></html>`;
 }
 
+/**
+ * MARK_READ_ON_OPEN: once an email has been shown, closing it (any way: Close, Esc, Back, leaving the
+ * page) marks it read in iCloud and removes the app's copy, unless "Keep unread" is pressed.
+ */
+function useMarkReadOnClose(id: number, enabled: boolean, onRead: () => void) {
+  const [keepUnread, setKeepUnread] = useState(false);
+  const loaded = useRef(false);
+  const skip = useRef(false);
+  const keep = useRef(false);
+  const on = useRef(enabled);
+  keep.current = keepUnread;
+  on.current = enabled; // read at close time: status may arrive after the email opened
+  useEffect(() => {
+    loaded.current = false;
+    skip.current = false;
+    setKeepUnread(false);
+    return () => {
+      if (on.current && loaded.current && !keep.current && !skip.current) {
+        void api.post(`/api/messages/${id}/read`).then(onRead, () => {});
+      }
+    };
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return {
+    readMode: enabled ? { keepUnread, setKeepUnread } : undefined,
+    onLoaded: () => { loaded.current = true; },
+    skipOnce: () => { skip.current = true; },
+  };
+}
+
+type ReadMode = { keepUnread: boolean; setKeepUnread: (v: boolean) => void };
+
 /** The email itself: header, AI summary, actions and body. Used by the full page and the pop-up. */
-export function MessageContent({ id, onChange, titleId }: { id: number; onChange: () => void; titleId?: string }) {
+export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
+  id: number;
+  onChange: () => void;
+  titleId?: string;
+  readMode?: ReadMode;
+  onLoaded?: () => void;
+}) {
   const [msg, setMsg] = useState<MessageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showHtml, setShowHtml] = useState(true);
@@ -30,8 +67,14 @@ export function MessageContent({ id, onChange, titleId }: { id: number; onChange
   useEffect(() => {
     setMsg(null);
     setError(null);
-    api.get<MessageDetail>(`/api/messages/${id}`).then(setMsg, (err) => setError((err as Error).message));
-  }, [id]);
+    api.get<MessageDetail>(`/api/messages/${id}`).then(
+      (m) => {
+        setMsg(m);
+        onLoaded?.();
+      },
+      (err) => setError((err as Error).message),
+    );
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   const srcDoc = useMemo(() => (msg?.html ? buildSrcDoc(msg.html) : null), [msg]);
 
   const toggleTodo = async () => {
@@ -76,8 +119,22 @@ export function MessageContent({ id, onChange, titleId }: { id: number; onChange
             {showHtml ? "Show plain text" : "Show formatted"}
           </button>
         )}
+        {readMode && (
+          <button type="button" className="mark" aria-pressed={readMode.keepUnread} onClick={() => readMode.setKeepUnread(!readMode.keepUnread)}>
+            Keep unread
+          </button>
+        )}
         <span className="coord">Remote images blocked</span>
       </div>
+      {readMode && (
+        <p className="coord read-note" role="status">
+          {readMode.keepUnread
+            ? "Stays unread in iCloud and in this app."
+            : msg.todo
+              ? "Closing marks it read in iCloud. It stays here while it's on your to-dos."
+              : "Closing marks it read in iCloud and removes it from this app."}
+        </p>
+      )}
 
       {showHtml && srcDoc ? (
         <>
@@ -103,7 +160,8 @@ export function MessageContent({ id, onChange, titleId }: { id: number; onChange
 }
 
 /** Full-page view, for deep links (#/messages/:id) and "open in new tab". */
-export function MessageView({ id, onChange }: { id: number; onChange: () => void }) {
+export function MessageView({ id, onChange, markRead, onRead }: { id: number; onChange: () => void; markRead: boolean; onRead: () => void }) {
+  const { readMode, onLoaded } = useMarkReadOnClose(id, markRead, onRead);
   return (
     <>
       <p className="crumb">
@@ -111,7 +169,7 @@ export function MessageView({ id, onChange }: { id: number; onChange: () => void
           <Icon name="prev" className="ico" /> Back
         </a>
       </p>
-      <MessageContent id={id} onChange={onChange} />
+      <MessageContent id={id} onChange={onChange} readMode={readMode} onLoaded={onLoaded} />
     </>
   );
 }
@@ -120,8 +178,15 @@ export function MessageView({ id, onChange }: { id: number; onChange: () => void
  * The pop-up. A native modal <dialog>: focus is trapped inside, Esc closes it, and the page behind
  * is inert. Field System: a plain sheet with a hairline border, no shadow, blur or rounding.
  */
-export function MessageDialog({ id, onClose, onChange }: { id: number; onClose: () => void; onChange: () => void }) {
+export function MessageDialog({ id, onClose, onChange, markRead, onRead }: {
+  id: number;
+  onClose: () => void;
+  onChange: () => void;
+  markRead: boolean;
+  onRead: () => void;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
+  const { readMode, onLoaded, skipOnce } = useMarkReadOnClose(id, markRead, onRead);
   const opener = useRef<Element | null>(null);
 
   useEffect(() => {
@@ -151,7 +216,7 @@ export function MessageDialog({ id, onClose, onChange }: { id: number; onClose: 
     >
       <div className="sheet-bar">
         <span className="coord">Email</span>
-        <a className="textlink" href={`#/messages/${id}`}>
+        <a className="textlink" href={`#/messages/${id}`} onClick={skipOnce}>
           Open full page <Icon name="external" className="ico" />
         </a>
         <button type="button" className="btn ghost sheet-close" onClick={onClose}>
@@ -159,7 +224,7 @@ export function MessageDialog({ id, onClose, onChange }: { id: number; onClose: 
         </button>
       </div>
       <div className="sheet-body">
-        <MessageContent id={id} onChange={onChange} titleId="sheet-title" />
+        <MessageContent id={id} onChange={onChange} titleId="sheet-title" readMode={readMode} onLoaded={onLoaded} />
       </div>
     </dialog>
   );

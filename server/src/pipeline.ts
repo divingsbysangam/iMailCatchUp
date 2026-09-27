@@ -1,5 +1,5 @@
 import type { AppContext } from "./context.js";
-import { archiveBriefMail, syncMail } from "./mail.js";
+import { archiveBriefMail, flushSeen, syncMail } from "./mail.js";
 import { triageMessages } from "./triage.js";
 
 export interface RefreshResult {
@@ -18,6 +18,11 @@ let running: Promise<RefreshResult> | null = null;
  */
 export function refreshMail(ctx: AppContext): Promise<RefreshResult> {
   running ??= (async () => {
+    try {
+      await flushSeen(ctx); // first, so iCloud and the app agree before syncing
+    } catch {
+      // logged in flushSeen; sync still skips queued emails
+    }
     const synced = await syncMail(ctx);
     let triaged = 0;
     let archived = 0;

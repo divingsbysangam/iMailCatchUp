@@ -4,6 +4,7 @@ import type { BriefContentV2, BriefItem } from "./brief.js";
 import { categoryLabel, slotLabel } from "./categories.js";
 import type { AppContext } from "./context.js";
 import { kvGet } from "./db.js";
+import { flushSeen } from "./mail.js";
 import { refreshMail } from "./pipeline.js";
 import { sendPushToAll } from "./push.js";
 import { localNow, runBrief } from "./scheduler.js";
@@ -76,6 +77,7 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       mailboxes: config.MAILBOXES,
       unreadOnly: config.SYNC_UNREAD_ONLY,
       autoArchive: config.AUTO_ARCHIVE,
+      markReadOnOpen: config.MARK_READ_ON_OPEN,
       archiveFolder: config.ARCHIVE_FOLDER,
       counts: {
         needsYou: count("SELECT COUNT(*) AS n FROM messages WHERE action = 'inbox' OR triaged_at IS NULL"),
@@ -137,6 +139,35 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       text: cipher.decryptNullable(r.text_enc as string | null),
       html: cipher.decryptNullable(r.html_enc as string | null),
     };
+  });
+
+  /**
+   * The app has finished showing this email (MARK_READ_ON_OPEN): queue "mark read in iCloud" and drop
+   * the local copy. Open to-dos keep their copy. Archived mail is already read in iCloud.
+   */
+  app.post("/api/messages/:id/read", async (req, reply) => {
+    const p = IdParam.safeParse(req.params);
+    if (!p.success) return reply.code(400).send({ error: "Bad id" });
+    if (!config.MARK_READ_ON_OPEN) return { ok: true, markedRead: false, removed: false };
+    const r = db
+      .prepare("SELECT mailbox, uid_validity, uid, archived, todo, todo_done_at FROM messages WHERE id = ?")
+      .get(p.data.id) as { mailbox: string; uid_validity: string; uid: number; archived: number; todo: number; todo_done_at: number | null } | undefined;
+    if (!r) return reply.code(404).send({ error: "Not found" });
+    const keep = r.todo === 1 && r.todo_done_at === null;
+    db.transaction(() => {
+      if (!r.archived) {
+        db.prepare("INSERT OR IGNORE INTO pending_seen (mailbox, uid_validity, uid, added_at) VALUES (?, ?, ?, ?)").run(
+          r.mailbox,
+          r.uid_validity,
+          r.uid,
+          Date.now(),
+        );
+      }
+      if (keep) db.prepare("UPDATE messages SET seen = 1 WHERE id = ?").run(p.data.id);
+      else db.prepare("DELETE FROM messages WHERE id = ?").run(p.data.id);
+    })();
+    void flushSeen(ctx).catch(() => {}); // retried on the next sync if iCloud is unreachable
+    return { ok: true, markedRead: true, removed: !keep };
   });
 
   app.post("/api/messages/:id/todo", async (req, reply) => {

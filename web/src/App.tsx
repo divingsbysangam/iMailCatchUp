@@ -172,7 +172,12 @@ export function App() {
   };
 
   let view;
-  if (section === "messages" && id) view = <MessageView id={Number(id)} onChange={refreshStatus} />;
+  const onRead = () => {
+    setVersion((v) => v + 1);
+    void refreshStatus();
+  };
+  const markRead = status?.markReadOnOpen ?? false;
+  if (section === "messages" && id) view = <MessageView id={Number(id)} onChange={refreshStatus} markRead={markRead} onRead={onRead} />;
   else if (section === "needs") view = <NeedsYou key={version} onChange={refreshStatus} />;
   else if (section === "todos") view = <Todos key={version} onChange={refreshStatus} />;
   else if (section === "settings") view = <Settings status={status} onSignedOut={() => setAuthed(false)} onChange={refreshStatus} />;
@@ -180,7 +185,7 @@ export function App() {
   return (
     <OpenMessageContext.Provider value={openMessage}>
       {chrome(view)}
-      {openId !== null && <MessageDialog id={openId} onClose={closeMessage} onChange={onChange} />}
+      {openId !== null && <MessageDialog id={openId} onClose={closeMessage} onChange={onChange} markRead={markRead} onRead={onRead} />}
     </OpenMessageContext.Provider>
   );
 }

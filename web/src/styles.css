@@ -392,3 +392,5 @@ dialog.sheet::backdrop { background: rgba(20, 20, 19, 0.55); }
   .sheet-bar .textlink { display: none; }
   .sheet-body { padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-12) + env(safe-area-inset-bottom)); }
 }
+.read-note { margin-top: var(--spacing-3); }
+.row.read .who, .row.read .subj { color: var(--color-muted); }
