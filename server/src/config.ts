@@ -27,9 +27,22 @@ const schema = z.object({
    * it is removed from this app on the next sync. false = all mail in the sync window.
    */
   SYNC_UNREAD_ONLY: bool.default(true),
+  /**
+   * Cora-style archiving: mail the screener puts in the brief is marked read and moved out of the
+   * inbox to ARCHIVE_FOLDER in iCloud. Needs write access to the mailbox; off by default.
+   */
+  AUTO_ARCHIVE: bool.default(false),
+  ARCHIVE_FOLDER: z.string().min(1).max(100).default("iMailCatchUp Brief"),
 
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().default("gpt-5-mini"),
+  /** Comma-separated local times for briefs, e.g. "08:30,18:00". */
+  BRIEF_TIMES: z
+    .string()
+    .optional()
+    .transform((s) => (s ? s.split(",").map((t) => t.trim()).filter(Boolean) : undefined))
+    .refine((l) => !l || (l.length > 0 && l.every((t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t))), "HH:MM[,HH:MM…], 24h"),
+  /** Single brief time. Used only when BRIEF_TIMES is not set (kept for older configs). */
   BRIEF_TIME: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "HH:MM, 24h").default("19:00"),
   BRIEF_TIMEZONE: z
     .string()
@@ -79,7 +92,7 @@ const schema = z.object({
   VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)/, "mailto: or https:// URL"),
 });
 
-export type Config = z.infer<typeof schema>;
+export type Config = z.infer<typeof schema> & { briefTimes: string[] };
 
 const checked = schema.refine((c) => !c.REQUIRE_CLOUDFLARE || c.CLOUDFLARE_ORIGIN_SECRET, {
   path: ["REQUIRE_CLOUDFLARE"],
@@ -92,5 +105,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`);
     throw new Error(`Invalid configuration:\n${issues.join("\n")}`);
   }
-  return parsed.data;
+  const briefTimes = [...new Set(parsed.data.BRIEF_TIMES ?? [parsed.data.BRIEF_TIME])].sort();
+  return { ...parsed.data, briefTimes };
 }

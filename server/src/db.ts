@@ -66,6 +66,23 @@ const MIGRATIONS: string[] = [
   ALTER TABLE briefs ADD COLUMN input_tokens INTEGER;
   ALTER TABLE briefs ADD COLUMN output_tokens INTEGER;
   `,
+  `
+  -- Screener (triage) results, archiving and to-dos.
+  ALTER TABLE messages ADD COLUMN category TEXT;
+  ALTER TABLE messages ADD COLUMN action TEXT;           -- 'inbox' | 'brief'
+  ALTER TABLE messages ADD COLUMN summary_enc TEXT;
+  ALTER TABLE messages ADD COLUMN highlight_enc TEXT;
+  ALTER TABLE messages ADD COLUMN triaged_at INTEGER;
+  ALTER TABLE messages ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE messages ADD COLUMN brief_id INTEGER;
+  ALTER TABLE messages ADD COLUMN todo INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE messages ADD COLUMN todo_done_at INTEGER;
+  CREATE INDEX messages_triage ON messages (triaged_at, action, brief_id);
+  -- Brief slots (e.g. morning/evening) and "done" state.
+  ALTER TABLE briefs ADD COLUMN local_date TEXT;
+  ALTER TABLE briefs ADD COLUMN slot TEXT;
+  ALTER TABLE briefs ADD COLUMN done_at INTEGER;
+  `,
 ];
 
 export function openDb(path: string): DB {
