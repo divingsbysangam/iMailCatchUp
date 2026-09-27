@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, coordTime, sender, type MessageSummary } from "../api";
+import { IconButton } from "../lib/icons";
 import { useMessageLink } from "../lib/openMessage";
 
 export function MessageRow({ m, onTodo }: { m: MessageSummary; onTodo: (m: MessageSummary) => void }) {
@@ -18,9 +19,7 @@ export function MessageRow({ m, onTodo }: { m: MessageSummary; onTodo: (m: Messa
       <div className="row-side">
         <span className="coord">{coordTime(m.date)}</span>
         {m.highlight && <span className="fact">{m.highlight}</span>}
-        <button type="button" className="mark" aria-pressed={m.todo} onClick={() => onTodo(m)}>
-          {m.todo ? "On to-dos" : "To-do"}
-        </button>
+        <IconButton icon="mock" iconOn="bookmarkOn" pressed={m.todo} label={m.todo ? "On your to-dos (tap to remove)" : "Add to to-dos"} onClick={() => onTodo(m)} />
       </div>
     </li>
   );
@@ -77,9 +76,7 @@ export function NeedsYou({ onChange }: { onChange: () => void }) {
       <section className="page-head">
         <div className="head-row">
           <p className="eyebrow">{view === "needs" ? "Needs you" : "All recent"}</p>
-          <button type="button" className="btn ghost" onClick={sync} disabled={syncing}>
-            {syncing ? "Syncing…" : "Sync now"}
-          </button>
+          <IconButton icon="sync" label={syncing ? "Syncing…" : "Sync with iCloud now"} onClick={sync} disabled={syncing} />
         </div>
         <h1 tabIndex={-1}>
           {messages === null
@@ -106,9 +103,7 @@ export function NeedsYou({ onChange }: { onChange: () => void }) {
       <ul className="rows">{messages?.map((m) => <MessageRow key={m.id} m={m} onTodo={toggleTodo} />)}</ul>
       {!done && messages && messages.length > 0 && (
         <div className="foot-actions">
-          <button type="button" className="btn ghost" onClick={() => load(messages[messages.length - 1]!.date)}>
-            Load more
-          </button>
+          <IconButton icon="expand" label="Load more" onClick={() => load(messages[messages.length - 1]!.date)} />
         </div>
       )}
     </>

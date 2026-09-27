@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Status } from "../api";
+import { IconButton } from "../lib/icons";
 import { currentSubscription, disablePush, enablePush, pushSupported } from "../push";
 
 export function Settings({ status, onSignedOut, onChange }: { status: Status | null; onSignedOut: () => void; onChange: () => void }) {
@@ -47,13 +48,11 @@ export function Settings({ status, onSignedOut, onChange }: { status: Status | n
         {pushSupported() && (
           <div className="foot-actions">
             {pushOn ? (
-              <button type="button" className="btn ghost" onClick={() => run(disablePush, "Notifications are off on this device.")}>Turn off</button>
+              <IconButton icon="bellOff" label="Turn notifications off on this device" onClick={() => run(disablePush, "Notifications are off on this device.")} />
             ) : (
-              <button type="button" className="btn" onClick={() => run(enablePush, "Notifications are on for this device.")}>Turn on</button>
+              <IconButton icon="bell" label="Turn notifications on for this device" onClick={() => run(enablePush, "Notifications are on for this device.")} />
             )}
-            <button type="button" className="btn ghost" disabled={!pushOn} onClick={() => run(() => api.post("/api/push/test"), "Test notification sent.")}>
-              Send a test
-            </button>
+            <IconButton icon="spark" label="Send a test notification" disabled={!pushOn} onClick={() => run(() => api.post("/api/push/test"), "Test notification sent.")} />
           </div>
         )}
       </section>
@@ -80,7 +79,7 @@ export function Settings({ status, onSignedOut, onChange }: { status: Status | n
       <section className="section" aria-labelledby="set-session">
         <div className="section-head"><h2 id="set-session">Session</h2></div>
         <div className="foot-actions" style={{ marginTop: 0 }}>
-          <button type="button" className="btn ghost" onClick={() => run(() => api.post("/api/auth/logout"), "").then(onSignedOut)}>Sign out</button>
+          <IconButton icon="signout" label="Sign out on this device" onClick={() => run(() => api.post("/api/auth/logout"), "").then(onSignedOut)} />
           <button
             type="button"
             className="btn ghost"

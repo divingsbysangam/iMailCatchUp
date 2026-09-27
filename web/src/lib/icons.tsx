@@ -17,11 +17,54 @@ const PATHS = {
   keyboard: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M7 15h10"/>',
 } as const;
 
-export type IconName = keyof typeof PATHS;
+import { APP_PATHS } from "./appIcons";
+
+export type IconName = keyof typeof PATHS | keyof typeof APP_PATHS;
+const ALL: Record<IconName, string> = { ...PATHS, ...APP_PATHS };
 
 /** Decorative by default; pass `label` only when the glyph alone carries meaning. */
 export function Icon({ name, label, className = "ico" }: { name: IconName; label?: string; className?: string }) {
   const a11y = label ? { role: "img", "aria-label": label } : { "aria-hidden": true, focusable: false };
   // Static, trusted path data (no user input).
-  return <svg className={className} viewBox="0 0 24 24" {...a11y} dangerouslySetInnerHTML={{ __html: PATHS[name] }} />;
+  return <svg className={className} viewBox="0 0 24 24" {...a11y} dangerouslySetInnerHTML={{ __html: ALL[name] }} />;
+}
+
+/**
+ * Icon-only button. The label is the accessible name and the tooltip; `pressed` makes it a toggle
+ * (state shown by colour AND by `iconOn`, a different glyph, never colour alone).
+ */
+export function IconButton({
+  icon,
+  iconOn,
+  label,
+  onClick,
+  pressed,
+  signal,
+  disabled,
+  href,
+  className = "",
+}: {
+  icon: IconName;
+  iconOn?: IconName;
+  label: string;
+  onClick?: (e: React.MouseEvent) => void;
+  pressed?: boolean;
+  signal?: boolean;
+  disabled?: boolean;
+  href?: string;
+  className?: string;
+}) {
+  const cls = `icon-btn${signal ? " signal" : ""}${className ? ` ${className}` : ""}`;
+  const glyph = <Icon name={pressed && iconOn ? iconOn : icon} />;
+  if (href)
+    return (
+      <a className={cls} href={href} aria-label={label} title={label} onClick={onClick}>
+        {glyph}
+      </a>
+    );
+  return (
+    <button type="button" className={cls} aria-label={label} title={label} onClick={onClick} aria-pressed={pressed} disabled={disabled}>
+      {glyph}
+    </button>
+  );
 }

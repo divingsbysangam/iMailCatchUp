@@ -337,6 +337,6 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   });
 
   app.post("/api/push/test", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async () =>
-    sendPushToAll(ctx, { title: "iMailCatchUp", body: "Notifications are working.", url: "/#/settings", tag: "test" }),
+    sendPushToAll(ctx, { title: "Surface", body: "Notifications are working.", url: "/#/settings", tag: "test" }),
   );
 }

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Status } from "./api";
 import { BriefView } from "./views/Brief";
 import { Login } from "./views/Login";
+import { Icon, type IconName } from "./lib/icons";
 import { OpenMessageContext } from "./lib/openMessage";
 import { MessageDialog, MessageView } from "./views/Message";
 import { NeedsYou } from "./views/NeedsYou";
 import { Settings } from "./views/Settings";
 import { Todos } from "./views/Todos";
 
-const HOST = "brief.divingsbysangam.com";
+const APP_NAME = "Surface";
 
 function useHashRoute(): string[] {
   const parse = () => (window.location.hash.replace(/^#\/?/, "") || "brief").split("/");
@@ -21,12 +22,12 @@ function useHashRoute(): string[] {
   return route;
 }
 
-const TABS = [
-  { key: "brief", label: "Brief", href: "#/brief" },
-  { key: "needs", label: "Needs you", href: "#/needs" },
-  { key: "todos", label: "To-dos", href: "#/todos" },
-  { key: "settings", label: "Settings", href: "#/settings" },
-] as const;
+const TABS: { key: string; label: string; href: string; icon: IconName }[] = [
+  { key: "brief", label: "Brief", href: "#/brief", icon: "reading" },
+  { key: "needs", label: "Needs you", href: "#/needs", icon: "inbox" },
+  { key: "todos", label: "To-dos", href: "#/todos", icon: "mock" },
+  { key: "settings", label: "Settings", href: "#/settings", icon: "gear" },
+];
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -95,7 +96,7 @@ export function App() {
   // Per-route document title + live-region announcement; focus moves to the view on route change.
   useEffect(() => {
     if (!authed) return;
-    document.title = `${title} · iMailCatchUp`;
+    document.title = `${title} · ${APP_NAME}`;
     setAnnounce(`${title} page`);
     viewRef.current?.focus({ preventScroll: true });
   }, [authed, route.join("/"), title]);
@@ -106,9 +107,9 @@ export function App() {
     <>
       <a className="skip-link" href="#view">Skip to content</a>
       <header className="site-nav">
-        <a className="brand" href="#/brief" aria-label="iMailCatchUp brief">
+        <a className="brand" href="#/brief" aria-label={`${APP_NAME} by Divings, go to the brief`}>
           <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-word">Divings</span>
+          <span className="brand-word">{APP_NAME}</span>
         </a>
         {authed && (
           <nav className="nav-links" aria-label="Main">
@@ -122,16 +123,12 @@ export function App() {
           </nav>
         )}
       </header>
-      <div className="subdomain-bar">
-        <span className="host">{HOST}</span>
-        <span className="desc">Your iCloud inbox, briefed twice a day.</span>
-      </div>
       <main id="view" className="wrap" tabIndex={-1} ref={viewRef}>
         {content}
       </main>
       <footer className="site-foot">
         <div className="foot-main">
-          <p className="foot-kicker">Field note</p>
+          <p className="foot-kicker">{APP_NAME} · by Divings</p>
           <p className="foot-line">
             {status?.lastSyncAt
               ? `Synced ${new Date(status.lastSyncAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}. ${status.counts.needsYou} need${status.counts.needsYou === 1 ? "s" : ""} you, ${status.counts.waitingForBrief} wait${status.counts.waitingForBrief === 1 ? "s" : ""} for the next brief.`
@@ -153,11 +150,15 @@ export function App() {
       </footer>
       {authed && (
         <nav className="tabbar" aria-label="Main (phone)">
-          {TABS.map((t) => (
-            <a key={t.key} href={t.href} aria-current={tab === t.key ? "page" : undefined}>
-              {t.label}
-            </a>
-          ))}
+          {TABS.map((t) => {
+            const count = t.key === "needs" ? status?.counts.needsYou : t.key === "todos" ? status?.counts.todos : 0;
+            return (
+              <a key={t.key} href={t.href} aria-current={tab === t.key ? "page" : undefined} aria-label={count ? `${t.label}, ${count}` : t.label} title={t.label}>
+                <Icon name={t.icon} />
+                {count ? <span className="tab-count" aria-hidden="true">{count}</span> : null}
+              </a>
+            );
+          })}
         </nav>
       )}
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>

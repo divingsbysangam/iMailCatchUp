@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, coordTime, sender, type MessageSummary } from "../api";
-import { Icon } from "../lib/icons";
+import { IconButton } from "../lib/icons";
 import { useMessageLink } from "../lib/openMessage";
 
 export function Todos({ onChange }: { onChange: () => void }) {
@@ -36,9 +36,7 @@ export function Todos({ onChange }: { onChange: () => void }) {
           const isDone = !!m.todoDoneAt;
           return (
             <li key={m.id} className={`row link${isDone ? " done" : ""}`} onClick={rowClick(m.id)}>
-              <button type="button" className="mark" aria-pressed={isDone} onClick={() => setDone(m, !isDone)} aria-label={isDone ? `Mark "${m.subject}" not done` : `Mark "${m.subject}" done`}>
-                {isDone ? <Icon name="done" className="ico" /> : "Done"}
-              </button>
+              <IconButton icon="done" pressed={isDone} label={isDone ? `Mark "${m.subject}" not done` : `Mark "${m.subject}" done`} onClick={() => setDone(m, !isDone)} />
               <div className="row-main">
                 <div className="row-top">
                   <a className="who" {...linkProps(m.id)}>{sender(m)}</a>
@@ -50,7 +48,7 @@ export function Todos({ onChange }: { onChange: () => void }) {
               <div className="row-side">
                 <span className="coord">{coordTime(m.date)}</span>
                 {m.highlight && <span className="fact">{m.highlight}</span>}
-                <button type="button" className="textlink" onClick={() => remove(m)}>Remove</button>
+                <IconButton icon="close" className="bare" label={`Remove "${m.subject}" from to-dos`} onClick={() => remove(m)} />
               </div>
             </li>
           );
