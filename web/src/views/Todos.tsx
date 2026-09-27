@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, coordTime, sender, type MessageSummary } from "../api";
 import { Icon } from "../lib/icons";
+import { useMessageLink } from "../lib/openMessage";
 
 export function Todos({ onChange }: { onChange: () => void }) {
   const [todos, setTodos] = useState<MessageSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { linkProps, rowClick } = useMessageLink();
 
   const load = () => api.get<{ todos: MessageSummary[] }>("/api/todos").then((r) => setTodos(r.todos), (e) => setError((e as Error).message));
   useEffect(() => void load(), []);
@@ -33,13 +35,13 @@ export function Todos({ onChange }: { onChange: () => void }) {
         {todos?.map((m) => {
           const isDone = !!m.todoDoneAt;
           return (
-            <li key={m.id} className={`row${isDone ? " done" : ""}`}>
+            <li key={m.id} className={`row link${isDone ? " done" : ""}`} onClick={rowClick(m.id)}>
               <button type="button" className="mark" aria-pressed={isDone} onClick={() => setDone(m, !isDone)} aria-label={isDone ? `Mark "${m.subject}" not done` : `Mark "${m.subject}" done`}>
                 {isDone ? <Icon name="done" className="ico" /> : "Done"}
               </button>
               <div className="row-main">
                 <div className="row-top">
-                  <a className="who" href={`#/messages/${m.id}`}>{sender(m)}</a>
+                  <a className="who" {...linkProps(m.id)}>{sender(m)}</a>
                   {isDone && <span className="coord">Done</span>}
                 </div>
                 <p className="subj">{m.subject || "(no subject)"}</p>
