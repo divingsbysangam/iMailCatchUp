@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, isoDate, parseLocalDate, type BriefDetail, type BriefItem, type BriefListItem, type Status } from "../api";
-import { Icon } from "../lib/icons";
+import { Icon, IconButton } from "../lib/icons";
 import { Orb } from "../lib/Orb";
 import { useMessageLink } from "../lib/openMessage";
 import type { OrbState } from "../lib/orb";
@@ -135,9 +135,13 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
         <div className="row-side">
           {item.highlight && <span className="fact">{item.highlight}</span>}
           {live?.stored ? (
-            <button type="button" className="mark" aria-pressed={live.todo} onClick={() => toggleTodo(item.emailId)}>
-              {live.todo ? "On to-dos" : "To-do"}
-            </button>
+            <IconButton
+              icon="mock"
+              iconOn="bookmarkOn"
+              pressed={live.todo}
+              label={live.todo ? "On your to-dos (tap to remove)" : "Add to to-dos"}
+              onClick={() => toggleTodo(item.emailId)}
+            />
           ) : (
             <span className="coord">Read</span>
           )}
@@ -153,9 +157,7 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
           <p className="eyebrow">
             {selected ? `${slotName(selected.slot)} brief` : "Brief"} · {dayLabel(shownDate)}
           </p>
-          <button type="button" className="btn signal" onClick={generate} disabled={busy}>
-            {busy ? "Briefing…" : "Brief me now"}
-          </button>
+          <IconButton icon="spark" signal label={busy ? "Making a brief…" : "Brief me now"} onClick={generate} disabled={busy} />
         </div>
         <h1 id="brief-title" tabIndex={-1}>
           {c ? c.headline : selected ? "Loading the brief…" : shownDate === today ? "No brief yet today." : "No brief that day."}
@@ -208,7 +210,7 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
             onClick={() => openBrief(t.brief)}
           >
             <Orb state={t.state} size={22} />
-            {t.label} {t.time} <span className="sub">· {t.note}</span>
+            {t.label} <span className="slot-time">{t.time}</span> <span className="sub">· {t.note}</span>
           </button>
         ))}
       </div>
@@ -216,12 +218,12 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
       {needsYou > 0 && (
         <aside className="waypoint" aria-label="Needs you">
           <p className="wp-kicker">Needs you · {needsYou}</p>
-          <h3>
-            {needsYou} email{needsYou === 1 ? " is" : "s are"} waiting for a reply or a decision.
-          </h3>
-          <a className="btn ghost" href="#/needs">
-            Open needs you <Icon name="next" />
-          </a>
+          <div className="head-row">
+            <h3>
+              {needsYou} email{needsYou === 1 ? " is" : "s are"} waiting for a reply or a decision.
+            </h3>
+            <IconButton icon="next" label="Open Needs you" href="#/needs" />
+          </div>
         </aside>
       )}
 
@@ -271,11 +273,10 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
 
       {detail && (
         <div className="foot-actions">
-          <button type="button" className="btn ghost" aria-pressed={detail.done} onClick={toggleDone}>
-            <Icon name="done" /> {detail.done ? "Brief done · undo" : "Mark brief done"}
-          </button>
+          <IconButton icon="done" pressed={detail.done} label={detail.done ? "Brief done (tap to undo)" : "Mark brief done"} onClick={toggleDone} />
+          <span className="coord">{detail.done ? "Done" : "Mark done"}</span>
           {detail.model && (
-            <span className="coord">
+            <span className="coord push-right">
               Written by {detail.model}
               {detail.inputTokens != null && ` · ${detail.inputTokens.toLocaleString()} in / ${(detail.outputTokens ?? 0).toLocaleString()} out tokens`}
             </span>

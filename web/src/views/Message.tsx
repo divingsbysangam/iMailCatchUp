@@ -1,7 +1,7 @@
 import DOMPurify from "dompurify";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, sender, type MessageDetail } from "../api";
-import { Icon } from "../lib/icons";
+import { IconButton } from "../lib/icons";
 
 /**
  * Email HTML is hostile input. Layers of defence:
@@ -110,21 +110,14 @@ export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
         </aside>
       )}
 
-      <div className="msg-actions">
-        <button type="button" className="mark" aria-pressed={msg.todo} onClick={toggleTodo}>
-          {msg.todo ? "On to-dos" : "Add to to-dos"}
-        </button>
-        {msg.html && (
-          <button type="button" className="textlink" onClick={() => setShowHtml(!showHtml)}>
-            {showHtml ? "Show plain text" : "Show formatted"}
-          </button>
-        )}
+      <div className="msg-actions icon-row">
+        <IconButton icon="mock" iconOn="bookmarkOn" pressed={msg.todo} label={msg.todo ? "On your to-dos (tap to remove)" : "Add to to-dos"} onClick={toggleTodo} />
         {readMode && (
-          <button type="button" className="mark" aria-pressed={readMode.keepUnread} onClick={() => readMode.setKeepUnread(!readMode.keepUnread)}>
-            Keep unread
-          </button>
+          <IconButton icon="mail" iconOn="mailDot" pressed={readMode.keepUnread} label={readMode.keepUnread ? "Keeping unread (tap to undo)" : "Keep unread"} onClick={() => readMode.setKeepUnread(!readMode.keepUnread)} />
         )}
-        <span className="coord">Remote images blocked</span>
+        {msg.html && (
+          <IconButton icon="text" pressed={!showHtml} label={showHtml ? "Show plain text" : "Show formatted"} onClick={() => setShowHtml(!showHtml)} />
+        )}
       </div>
       {readMode && (
         <p className="coord read-note" role="status">
@@ -147,9 +140,8 @@ export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
             style={{ height }}
           />
           <div className="foot-actions">
-            <button type="button" className="btn ghost" onClick={() => setHeight((h) => h + 800)}>
-              <Icon name="expand" /> Show more
-            </button>
+            <IconButton icon="expand" label="Show more of the email" onClick={() => setHeight((h) => h + 800)} />
+            <span className="coord">Remote images blocked</span>
           </div>
         </>
       ) : (
@@ -165,9 +157,7 @@ export function MessageView({ id, onChange, markRead, onRead }: { id: number; on
   return (
     <>
       <p className="crumb">
-        <a className="textlink" href="#" onClick={(e) => { e.preventDefault(); history.length > 1 ? history.back() : (location.hash = "#/needs"); }}>
-          <Icon name="prev" className="ico" /> Back
-        </a>
+        <IconButton icon="prev" className="bare" label="Back" href="#" onClick={(e) => { e.preventDefault(); history.length > 1 ? history.back() : (location.hash = "#/needs"); }} />
       </p>
       <MessageContent id={id} onChange={onChange} readMode={readMode} onLoaded={onLoaded} />
     </>
@@ -216,12 +206,8 @@ export function MessageDialog({ id, onClose, onChange, markRead, onRead }: {
     >
       <div className="sheet-bar">
         <span className="coord">Email</span>
-        <a className="textlink" href={`#/messages/${id}`} onClick={skipOnce}>
-          Open full page <Icon name="external" className="ico" />
-        </a>
-        <button type="button" className="btn ghost sheet-close" onClick={onClose}>
-          Close
-        </button>
+        <IconButton icon="external" className="bare sheet-full" label="Open as full page" href={`#/messages/${id}`} onClick={skipOnce} />
+        <IconButton icon="close" className="sheet-close" label="Close" onClick={onClose} />
       </div>
       <div className="sheet-body">
         <MessageContent id={id} onChange={onChange} titleId="sheet-title" readMode={readMode} onLoaded={onLoaded} />

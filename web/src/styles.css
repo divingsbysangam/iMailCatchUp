@@ -1,4 +1,4 @@
-/* iMailCatchUp — Divings Field System v1.0 (brief.divingsbysangam.com)
+/* Surface (by Divings) — Divings Field System v1.0
    ---------------------------------------------------------------------------
    Tokens and chrome copied from the CCA-F guide's css/main.css (itself copied from the
    "Divings Design System" Paper file). Per rule 04 "Inherit, then flex", this subdomain changes
@@ -143,9 +143,9 @@ button { font: inherit; color: inherit; }
 .skip-link:focus { top: var(--spacing-4); }
 
 /* ---------- page head (hero, compact for an app) ---------- */
-.page-head { display: flex; flex-direction: column; gap: var(--spacing-4); padding: var(--spacing-12) 0 var(--spacing-8); }
+.page-head { display: flex; flex-direction: column; gap: var(--spacing-3); padding: var(--spacing-10) 0 var(--spacing-6); }
 .page-head h1 {
-  font-size: clamp(32px, 5.5vw, var(--text-5xl)); letter-spacing: -0.03em; line-height: 1.08;
+  font-size: clamp(28px, 4.2vw, 44px); letter-spacing: -0.02em; line-height: 1.12;
   max-width: 980px; color: var(--color-foreground);
 }
 .page-head .lede { font-size: var(--text-lg); color: var(--color-muted); max-width: var(--container-prose); }
@@ -231,7 +231,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .day.today .dow::after { content: " ·"; color: var(--color-primary-ink); }
 
 /* ---------- rule-separated rows ---------- */
-.section { margin-top: var(--spacing-10); }
+.section { margin-top: var(--spacing-8); }
 .section-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: var(--spacing-4);
   padding-bottom: var(--spacing-3);
@@ -253,7 +253,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .row .who { font-size: var(--text-base); font-weight: var(--font-weight-medium); line-height: var(--leading-snug); color: var(--color-foreground); text-decoration: none; }
 .row a.who:hover { text-decoration: underline; text-underline-offset: 3px; }
 .row .subj { font-size: var(--text-sm); line-height: var(--leading-tight); color: var(--color-muted); margin-top: 2px; overflow-wrap: anywhere; }
-.row .ai { margin-top: var(--spacing-2); max-width: var(--container-prose); }
+.row .ai { margin-top: var(--spacing-1); max-width: var(--container-prose); font-size: 17px; line-height: 24px; }
 .row .plain { margin-top: var(--spacing-2); font-size: var(--text-sm); line-height: var(--leading-tight); color: var(--color-muted); max-width: var(--container-prose); }
 .row-side { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-2); }
 .fact { font-family: var(--font-mono); font-size: var(--text-sm); line-height: var(--leading-tight); color: var(--color-foreground); white-space: nowrap; }
@@ -270,11 +270,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .more summary:hover { color: var(--color-foreground); }
 
 /* the one hot-signal block: what needs you */
-.waypoint { margin-top: var(--spacing-8); padding: var(--spacing-5) 0 var(--spacing-5) var(--spacing-5); border-left: 2px solid var(--color-primary); max-width: var(--container-prose); }
+.waypoint { margin-top: var(--spacing-6); padding: var(--spacing-3) 0 var(--spacing-3) var(--spacing-5); border-left: 2px solid var(--color-primary); max-width: var(--container-prose); }
 .wp-kicker { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-wider); text-transform: uppercase; color: var(--color-primary-ink); }
 .waypoint h3 { font-family: var(--font-sans); font-size: var(--text-base); font-weight: var(--font-weight-semibold); margin-top: var(--spacing-2); color: var(--color-foreground); }
 .waypoint p:not(.wp-kicker) { margin-top: var(--spacing-2); color: var(--color-muted); font-size: var(--text-sm); line-height: var(--leading-snug); }
-.waypoint p.ai { color: var(--color-foreground); font-size: var(--text-xl); line-height: var(--leading-relaxed); margin-top: var(--spacing-2); }
+.waypoint p.ai { color: var(--color-foreground); font-size: var(--text-lg); line-height: var(--leading-snug); margin-top: var(--spacing-2); }
+.waypoint .head-row h3 { margin-top: 0; flex: 1 1 200px; }
 .waypoint .btn { margin-top: var(--spacing-4); }
 
 .placeholder { margin-top: var(--spacing-8); border: 1px solid var(--color-border); padding: var(--spacing-8); color: var(--color-muted); font-size: var(--text-sm); background: var(--color-surface); }
@@ -283,7 +284,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .error-line::before { content: 'ERROR · '; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-wide); color: var(--color-danger); }
 .note-line { margin-top: var(--spacing-4); padding: var(--spacing-3) var(--spacing-4); background: var(--color-surface); border-left: 2px solid var(--color-border); font-size: var(--text-sm); }
 
-.foot-actions { display: flex; gap: var(--spacing-3); flex-wrap: wrap; align-items: center; margin-top: var(--spacing-10); border-top: 1px solid var(--color-border); padding-top: var(--spacing-5); }
+.foot-actions { display: flex; gap: var(--spacing-3); flex-wrap: wrap; align-items: center; margin-top: var(--spacing-8); border-top: 1px solid var(--color-border); padding-top: var(--spacing-5); }
 
 /* ---------- slot picker (orbs carry the state visually; text carries it for everyone) ---------- */
 .slots { display: flex; gap: 0; flex-wrap: wrap; margin-top: var(--spacing-5); border-top: 1px solid var(--color-border); }
@@ -293,8 +294,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 /* ---------- message view ---------- */
 .crumb { margin-top: var(--spacing-8); }
 .msg-head { margin-top: var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-3); }
-.msg-head h1 { font-size: clamp(28px, 5vw, var(--text-4xl)); letter-spacing: var(--tracking-tight); line-height: 1.1; overflow-wrap: anywhere; }
-.msg-actions { display: flex; gap: var(--spacing-3); flex-wrap: wrap; align-items: center; margin-top: var(--spacing-5); }
+.msg-head h1 { font-size: clamp(24px, 3.6vw, var(--text-3xl)); letter-spacing: var(--tracking-tight); line-height: 1.1; overflow-wrap: anywhere; }
+.msg-actions { display: flex; gap: var(--spacing-2); flex-wrap: wrap; align-items: center; margin-top: var(--spacing-5); }
 .email-frame { display: block; width: 100%; border: 1px solid var(--color-border); background: #fff; margin-top: var(--spacing-6); }
 .email-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-sans); font-size: var(--text-base); line-height: var(--leading-normal); margin-top: var(--spacing-6); max-width: var(--container-prose); }
 
@@ -316,16 +317,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ---------- footer: inverse insight band ---------- */
 .site-foot {
-  flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--spacing-8);
-  padding: var(--spacing-12) var(--gutter); background: var(--color-inverse); flex-wrap: wrap;
+  flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: space-between; gap: var(--spacing-6);
+  padding: var(--spacing-10) var(--gutter); background: var(--color-inverse); flex-wrap: wrap;
 }
 .foot-main { display: flex; flex-direction: column; gap: var(--spacing-4); max-width: 880px; }
 .foot-kicker { font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: var(--tracking-wider); text-transform: uppercase; color: var(--color-primary-on-inverse); }
-.foot-line { font-family: var(--font-serif); font-size: var(--text-2xl); line-height: var(--leading-relaxed); color: var(--color-inverse-foreground); }
+.foot-line { font-family: var(--font-serif); font-size: var(--text-xl); line-height: var(--leading-normal); color: var(--color-inverse-foreground); }
 .foot-meta { font-size: var(--text-sm); color: var(--color-inverse-muted); }
 .foot-fine {
   flex: 1 0 100%; display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-8); flex-wrap: wrap;
-  margin-top: var(--spacing-8); padding-top: var(--spacing-5); border-top: 1px solid var(--color-formwork);
+  margin-top: var(--spacing-5); padding-top: var(--spacing-4); border-top: 1px solid var(--color-formwork);
 }
 .foot-disclaimer { font-size: var(--text-xs); line-height: var(--leading-tight); color: var(--color-inverse-muted); max-width: 720px; }
 .foot-disclaimer strong { color: var(--color-inverse-foreground); font-weight: var(--font-weight-semibold); }
@@ -344,10 +345,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   :root { --gutter: var(--spacing-4); }
   .nav-links a:not(.btn) { display: none; }
   .subdomain-bar .desc { display: none; }
-  .page-head { padding-top: var(--spacing-8); }
-  .row { gap: var(--spacing-3); }
-  .foot-line { font-size: var(--text-xl); line-height: var(--leading-normal); }
-  .site-foot { padding-bottom: calc(var(--spacing-12) + var(--tabbar-h) + env(safe-area-inset-bottom)); }
+  .page-head { padding: var(--spacing-6) 0 var(--spacing-4); }
+  .page-head h1 { font-size: 26px; line-height: 1.15; }
+  .page-head .lede, .page-head .lede-ai { font-size: var(--text-base); line-height: var(--leading-snug); }
+  .row { gap: var(--spacing-3); padding: var(--spacing-3) 0; }
+  .row .ai { font-size: var(--text-base); line-height: 22px; }
+  .row .who { font-size: 15px; }
+  .section { margin-top: var(--spacing-6); }
+  .foot-line { font-size: var(--text-lg); line-height: var(--leading-snug); }
+  .site-foot { padding-top: var(--spacing-8); padding-bottom: calc(var(--spacing-8) + var(--tabbar-h) + env(safe-area-inset-bottom)); }
+  .slots { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .slots .tab { padding-right: var(--spacing-5); }
+  .slots .slot-time { display: none; }
   .tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
     background: var(--color-background); border-top: 1px solid var(--color-border);
@@ -355,8 +364,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   }
   .tabbar a {
     flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 4px; height: var(--tabbar-h);
-    border-top: 2px solid transparent; margin-top: -1px; text-decoration: none;
-    font-family: var(--font-mono); font-size: 11px; letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--color-muted);
+    border-top: 2px solid transparent; margin-top: -1px; text-decoration: none; color: var(--color-muted); position: relative;
+  }
+  .tabbar .ico { width: 22px; height: 22px; }
+  .tabbar .tab-count {
+    font-family: var(--font-mono); font-size: 11px; line-height: 16px; color: var(--color-primary-ink);
   }
   .tabbar a[aria-current] { color: var(--color-foreground); border-top-color: var(--color-primary); }
   .wrap { padding-bottom: calc(var(--spacing-16) + var(--tabbar-h)); }
@@ -366,7 +378,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 
-.page-head .lede-ai { font-size: var(--text-xl); line-height: var(--leading-relaxed); color: var(--color-muted); max-width: var(--container-prose); }
+.page-head .lede-ai { font-size: var(--text-lg); line-height: var(--leading-snug); color: var(--color-muted); max-width: var(--container-prose); }
 
 /* ---------- email pop-up: a plain sheet (no shadow, blur or rounding), ink scrim behind ---------- */
 html.modal-open { overflow: hidden; }
@@ -389,8 +401,26 @@ dialog.sheet::backdrop { background: rgba(20, 20, 19, 0.55); }
 @media (max-width: 640px) {
   dialog.sheet { width: 100vw; height: 100dvh; border: 0; }
   .sheet-bar { padding: var(--spacing-2) var(--spacing-4); padding-top: max(var(--spacing-2), env(safe-area-inset-top)); }
-  .sheet-bar .textlink { display: none; }
+  .sheet-bar .sheet-full { display: none; }
   .sheet-body { padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-12) + env(safe-area-inset-bottom)); }
 }
 .read-note { margin-top: var(--spacing-3); }
 .row.read .who, .row.read .subj { color: var(--color-muted); }
+
+/* ---------- icon-only buttons (square, hairline, no shadow) ---------- */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 40px; height: 40px; padding: 0; cursor: pointer; text-decoration: none;
+  background: var(--color-background); color: var(--color-foreground);
+  border: 1px solid var(--color-border); border-radius: var(--radius-none);
+  transition: border-color .15s, color .15s, background .15s;
+}
+.icon-btn:hover { border-color: var(--color-foreground); }
+.icon-btn[aria-pressed="true"] { color: var(--color-primary-ink); border-color: var(--color-primary); }
+.icon-btn[disabled] { color: var(--color-muted); background: var(--color-surface); cursor: default; }
+.icon-btn.signal { background: var(--color-primary-ink); border-color: var(--color-primary-ink); color: var(--color-primary-foreground); }
+.icon-btn.signal:hover { background: var(--color-foreground); border-color: var(--color-foreground); }
+.icon-btn.bare { border-color: transparent; background: none; }
+.icon-btn.bare:hover { border-color: var(--color-border); }
+.push-right { margin-left: auto; }
+.icon-row { display: flex; align-items: center; gap: var(--spacing-2); flex-wrap: wrap; }

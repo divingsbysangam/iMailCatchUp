@@ -1,4 +1,6 @@
-# iMailCatchUp
+# Surface
+
+*(repository: iMailCatchUp)*
 
 Self-hosted, single-user **iCloud Mail reader** with an **AI screener** and **twice-daily briefs** delivered as **push notifications** to your Android phone. Styled with the Divings Field System.
 

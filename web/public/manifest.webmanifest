@@ -1,7 +1,7 @@
 {
-  "name": "iMailCatchUp \u00b7 Divings",
-  "short_name": "Brief",
-  "description": "Your iCloud inbox, briefed twice a day",
+  "name": "Surface",
+  "short_name": "Surface",
+  "description": "Your iCloud inbox, briefed twice a day. By Divings.",
   "start_url": "/#/brief",
   "scope": "/",
   "display": "standalone",
