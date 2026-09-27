@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Status } from "./api";
 import { BriefView } from "./views/Brief";
 import { Login } from "./views/Login";
-import { MessageView } from "./views/Message";
+import { OpenMessageContext } from "./lib/openMessage";
+import { MessageDialog, MessageView } from "./views/Message";
 import { NeedsYou } from "./views/NeedsYou";
 import { Settings } from "./views/Settings";
 import { Todos } from "./views/Todos";
@@ -33,6 +34,46 @@ export function App() {
   const [announce, setAnnounce] = useState("");
   const route = useHashRoute();
   const viewRef = useRef<HTMLElement>(null);
+  // Email pop-up. Opening pushes a history entry so the phone's Back button closes it.
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [version, setVersion] = useState(0);
+  const pushed = useRef(false);
+  const changed = useRef(false);
+
+  const openMessage = useCallback((id: number) => {
+    if (!pushed.current) {
+      history.pushState({ imcSheet: true }, "", window.location.href);
+      pushed.current = true;
+    }
+    setOpenId(id);
+  }, []);
+  const finishClose = useCallback(() => {
+    setOpenId(null);
+    if (changed.current) {
+      changed.current = false;
+      setVersion((v) => v + 1); // let the page behind reload (to-do marks etc.)
+    }
+  }, []);
+  const closeMessage = useCallback(() => {
+    if (pushed.current) history.back(); // popstate below finishes the close
+    else finishClose();
+  }, [finishClose]);
+  useEffect(() => {
+    const onPop = () => {
+      if (pushed.current) {
+        pushed.current = false;
+        finishClose();
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [finishClose]);
+  // A route change (e.g. "Open full page") drops the pop-up.
+  useEffect(() => {
+    if (!window.location.hash.startsWith("#/messages/")) return;
+    pushed.current = false;
+    setOpenId(null);
+  }, [route.join("/")]);
 
   const refreshStatus = useCallback(() => api.get<Status>("/api/status").then(setStatus, () => {}), []);
 
@@ -125,11 +166,21 @@ export function App() {
 
   if (!authed) return chrome(<Login onSuccess={() => setAuthed(true)} />);
 
+  const onChange = () => {
+    changed.current = true;
+    void refreshStatus();
+  };
+
   let view;
   if (section === "messages" && id) view = <MessageView id={Number(id)} onChange={refreshStatus} />;
-  else if (section === "needs") view = <NeedsYou onChange={refreshStatus} />;
-  else if (section === "todos") view = <Todos onChange={refreshStatus} />;
+  else if (section === "needs") view = <NeedsYou key={version} onChange={refreshStatus} />;
+  else if (section === "todos") view = <Todos key={version} onChange={refreshStatus} />;
   else if (section === "settings") view = <Settings status={status} onSignedOut={() => setAuthed(false)} onChange={refreshStatus} />;
-  else view = <BriefView status={status} briefId={section === "brief" && id ? Number(id) : null} onChange={refreshStatus} />;
-  return chrome(view);
+  else view = <BriefView status={status} briefId={section === "brief" && id ? Number(id) : null} onChange={refreshStatus} version={version} />;
+  return (
+    <OpenMessageContext.Provider value={openMessage}>
+      {chrome(view)}
+      {openId !== null && <MessageDialog id={openId} onClose={closeMessage} onChange={onChange} />}
+    </OpenMessageContext.Provider>
+  );
 }

@@ -367,3 +367,28 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .page-head .lede-ai { font-size: var(--text-xl); line-height: var(--leading-relaxed); color: var(--color-muted); max-width: var(--container-prose); }
+
+/* ---------- email pop-up: a plain sheet (no shadow, blur or rounding), ink scrim behind ---------- */
+html.modal-open { overflow: hidden; }
+dialog.sheet {
+  border: 1px solid var(--color-border); border-radius: var(--radius-none); padding: 0;
+  background: var(--color-background); color: var(--color-foreground);
+  width: min(880px, calc(100vw - 2 * var(--spacing-6))); max-width: none;
+  height: calc(100dvh - 2 * var(--spacing-10)); max-height: none;
+  margin: auto; overflow-y: auto; overscroll-behavior: contain;
+}
+dialog.sheet::backdrop { background: rgba(20, 20, 19, 0.55); }
+.sheet-bar {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--spacing-5);
+  padding: var(--spacing-3) var(--spacing-6); background: var(--color-background); border-bottom: 1px solid var(--color-border);
+}
+.sheet-bar .coord { flex: 1 1 auto; }
+.sheet-body { padding: var(--spacing-4) var(--spacing-6) var(--spacing-12); }
+.sheet-body .msg-head { margin-top: var(--spacing-4); }
+.msg-loading { padding: var(--spacing-8) 0; }
+@media (max-width: 640px) {
+  dialog.sheet { width: 100vw; height: 100dvh; border: 0; }
+  .sheet-bar { padding: var(--spacing-2) var(--spacing-4); padding-top: max(var(--spacing-2), env(safe-area-inset-top)); }
+  .sheet-bar .textlink { display: none; }
+  .sheet-body { padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-12) + env(safe-area-inset-bottom)); }
+}

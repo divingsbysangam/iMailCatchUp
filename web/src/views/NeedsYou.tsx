@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, coordTime, sender, type MessageSummary } from "../api";
+import { useMessageLink } from "../lib/openMessage";
 
 export function MessageRow({ m, onTodo }: { m: MessageSummary; onTodo: (m: MessageSummary) => void }) {
+  const { linkProps, rowClick } = useMessageLink();
   return (
-    <li className="row link">
+    <li className="row link" onClick={rowClick(m.id)}>
       <div className="row-main">
         <div className="row-top">
-          <a className="who" href={`#/messages/${m.id}`}>{sender(m)}</a>
+          <a className="who" {...linkProps(m.id)}>{sender(m)}</a>
           {m.categoryLabel && m.category !== "needs_reply" && <span className="coord">{m.categoryLabel}</span>}
         </div>
         <p className="subj">{m.subject || "(no subject)"}</p>

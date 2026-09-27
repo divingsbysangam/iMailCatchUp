@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, isoDate, parseLocalDate, type BriefDetail, type BriefItem, type BriefListItem, type Status } from "../api";
 import { Icon } from "../lib/icons";
 import { Orb } from "../lib/Orb";
+import { useMessageLink } from "../lib/openMessage";
 import type { OrbState } from "../lib/orb";
 
 const COLLAPSE_AFTER = 4;
@@ -17,7 +18,8 @@ function slotName(time: string): string {
   return "Evening";
 }
 
-export function BriefView({ status, briefId, onChange }: { status: Status | null; briefId: number | null; onChange: () => void }) {
+export function BriefView({ status, briefId, onChange, version }: { status: Status | null; briefId: number | null; onChange: () => void; version: number }) {
+  const { linkProps, rowClick } = useMessageLink();
   const [list, setList] = useState<BriefListItem[] | null>(null);
   const [detail, setDetail] = useState<BriefDetail | null>(null);
   const [date, setDate] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function BriefView({ status, briefId, onChange }: { status: Status | null
     setDetail(null);
     if (!selected) return;
     api.get<BriefDetail>(`/api/briefs/${selected.id}`).then(setDetail, (e) => setError((e as Error).message));
-  }, [selected?.id]);
+  }, [selected?.id, version]);
 
   // Seven-day strip ending on the shown date's week end (never past today).
   const days = useMemo(() => {
@@ -118,11 +120,11 @@ export function BriefView({ status, briefId, onChange }: { status: Status | null
   const row = (item: BriefItem, note?: string) => {
     const live = detail?.live[item.emailId];
     return (
-      <li className={`row${live?.stored ? " link" : ""}`} key={`${note ? "i" : "s"}${item.emailId}`}>
+      <li className={`row${live?.stored ? " link" : ""}`} key={`${note ? "i" : "s"}${item.emailId}`} onClick={live?.stored ? rowClick(item.emailId) : undefined}>
         <div className="row-main">
           <div className="row-top">
             {live?.stored ? (
-              <a className="who" href={`#/messages/${item.emailId}`}>{item.from}</a>
+              <a className="who" {...linkProps(item.emailId)}>{item.from}</a>
             ) : (
               <span className="who">{item.from}</span>
             )}
