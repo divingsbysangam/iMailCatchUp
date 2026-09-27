@@ -70,7 +70,7 @@ export async function buildApp(opts: {
   });
 
   app.addHook("onSend", async (req, reply) => {
-    if (req.url.startsWith("/api/")) reply.header("Cache-Control", "no-store");
+    if (req.url.startsWith("/api/") && !reply.hasHeader("Cache-Control")) reply.header("Cache-Control", "no-store");
   });
 
   app.get("/healthz", { config: { rateLimit: false } }, async () => ({ ok: true }));

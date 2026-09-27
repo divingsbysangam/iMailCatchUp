@@ -1,8 +1,8 @@
 import { ImapFlow } from "imapflow";
-import { simpleParser } from "mailparser";
 import type { AppContext } from "./context.js";
 import { kvGet, kvSet } from "./db.js";
 import { isBulkMail } from "./trim.js";
+import { attachmentList, parseMessage, RENDER_VERSION } from "./view.js";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_CHARS = 200_000;
@@ -20,7 +20,7 @@ export function syncSearchQuery(since: Date, unreadOnly: boolean): { since: Date
 /** SQL condition for rows that sync may delete when they vanish from the server. */
 const NOT_RETAINED = "archived = 0 AND brief_id IS NULL AND NOT (todo = 1 AND todo_done_at IS NULL)";
 
-function imapClient(ctx: AppContext): ImapFlow {
+export function imapClient(ctx: AppContext): ImapFlow {
   const { config } = ctx;
   return new ImapFlow({
     host: config.IMAP_HOST,
@@ -109,10 +109,10 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
         const insert = db.prepare(`
           INSERT OR IGNORE INTO messages
             (mailbox, uid_validity, uid, message_id, from_name, from_address, to_json,
-             subject_enc, snippet_enc, text_enc, html_enc, date, seen, flagged, has_attachments, is_bulk, size, synced_at)
+             subject_enc, snippet_enc, text_enc, html_enc, attachments_enc, render_v, date, seen, flagged, has_attachments, is_bulk, size, synced_at)
           VALUES
             (@mailbox, @uidValidity, @uid, @messageId, @fromName, @fromAddress, @toJson,
-             @subject, @snippet, @text, @html, @date, @seen, @flagged, @hasAttachments, @isBulk, @size, @syncedAt)
+             @subject, @snippet, @text, @html, @attachments, @renderV, @date, @seen, @flagged, @hasAttachments, @isBulk, @size, @syncedAt)
         `);
         for (let i = 0; i < fresh.length; i += FETCH_BATCH) {
           const batch = fresh.slice(i, i + FETCH_BATCH);
@@ -122,7 +122,10 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
             { uid: true },
           )) {
             if (!msg.source) continue;
-            const parsed = await simpleParser(msg.source, { skipImageLinks: true, skipTextToHtml: true });
+            const view = await parseMessage(msg.source);
+            const { parsed } = view;
+            // A source cut at MAX_SOURCE_BYTES may be missing parts; such mail is re-read in full when opened.
+            const complete = (msg.size ?? 0) <= MAX_SOURCE_BYTES;
             const text = (parsed.text ?? "").slice(0, MAX_TEXT_CHARS);
             const from = parsed.from?.value[0];
             const to = (Array.isArray(parsed.to) ? parsed.to : parsed.to ? [parsed.to] : []).flatMap((a) =>
@@ -140,11 +143,13 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
               subject: cipher.encryptNullable(parsed.subject ?? null),
               snippet: cipher.encrypt(snippetOf(text)),
               text: cipher.encrypt(text),
-              html: cipher.encryptNullable(typeof parsed.html === "string" ? parsed.html : null),
+              html: cipher.encryptNullable(view.html),
+              attachments: cipher.encrypt(JSON.stringify(attachmentList(view))),
+              renderV: complete ? RENDER_VERSION : 1,
               date: date.getTime(),
               seen: msg.flags?.has("\\Seen") ? 1 : 0,
               flagged: msg.flags?.has("\\Flagged") ? 1 : 0,
-              hasAttachments: parsed.attachments.length > 0 ? 1 : 0,
+              hasAttachments: view.files.length > 0 ? 1 : 0,
               isBulk: isBulkMail(parsed.headers, from?.address) ? 1 : 0,
               size: msg.size ?? null,
               syncedAt: Date.now(),
@@ -277,4 +282,53 @@ export async function flushSeen(ctx: AppContext): Promise<{ marked: number }> {
   }
   log.info({ marked }, "marked read in iCloud");
   return { marked };
+}
+
+export interface StoredLocation {
+  mailbox: string;
+  uid_validity: string;
+  uid: number;
+  message_id: string | null;
+  archived: number;
+}
+
+/**
+ * Download one message's full source from iCloud (read-only). Looks in its mailbox by UID first; mail
+ * that was archived or moved since sync is found again by its Message-ID. Returns null if it's gone.
+ */
+export async function fetchSource(ctx: AppContext, loc: StoredLocation): Promise<Buffer | null> {
+  const { config } = ctx;
+  const client = imapClient(ctx);
+  try {
+    await client.connect();
+    const places: { mailbox: string; byUid: boolean }[] = [];
+    if (!loc.archived) places.push({ mailbox: loc.mailbox, byUid: true });
+    if (loc.message_id) places.push({ mailbox: config.ARCHIVE_FOLDER, byUid: false }, { mailbox: loc.mailbox, byUid: false });
+    for (const place of places) {
+      let lock;
+      try {
+        lock = await client.getMailboxLock(place.mailbox, { readOnly: true });
+      } catch {
+        continue; // e.g. the archive folder doesn't exist yet
+      }
+      try {
+        if (!client.mailbox) continue;
+        let uid: number | undefined;
+        if (place.byUid) {
+          if (client.mailbox.uidValidity.toString() === loc.uid_validity) uid = loc.uid;
+        } else {
+          const found = await client.search({ header: { "message-id": loc.message_id! } }, { uid: true });
+          uid = found ? found[found.length - 1] : undefined;
+        }
+        if (!uid) continue;
+        const msg = await client.fetchOne(String(uid), { source: true }, { uid: true });
+        if (msg && msg.source) return msg.source;
+      } finally {
+        lock.release();
+      }
+    }
+    return null;
+  } finally {
+    await client.logout().catch(() => client.close());
+  }
 }

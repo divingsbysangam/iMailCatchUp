@@ -43,11 +43,19 @@ export interface MessageSummary {
   archived: boolean;
 }
 
+export interface AttachmentInfo {
+  index: number;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
 export interface MessageDetail extends MessageSummary {
   mailbox: string;
   to: { name?: string; address?: string }[];
   text: string | null;
   html: string | null;
+  attachments: AttachmentInfo[];
 }
 
 export interface BriefListItem {

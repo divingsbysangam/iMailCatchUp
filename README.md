@@ -122,8 +122,7 @@ npm test
 
 ## Limitations (v0.1)
 
-- Read-only: no sending, replying, archiving or marking as read (by design for now)
-- Attachments aren't downloadable in the app
+- No sending or replying (by design for now); archiving and marking read are opt-in (`AUTO_ARCHIVE`, `MARK_READ_ON_OPEN`)
 - Web Push on Android needs Chrome (or another browser with Push API support)
 - Messages are synced every `SYNC_INTERVAL_MINUTES`, not instantly
 

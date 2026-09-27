@@ -24,7 +24,8 @@ An iCloud **app-specific password** grants full IMAP/SMTP access to your mailbox
 | Transport | HTTPS (Railway) + HSTS; IMAP over TLS with certificate verification on |
 | Mailbox | Opened **read-only** by default. With `AUTO_ARCHIVE=true` / `MARK_READ_ON_OPEN=true` (opt-in) the app marks mail read and moves brief-bound mail to one folder; it never deletes mail in iCloud |
 | Data at rest | Subjects, snippets, bodies, AI summaries and briefs encrypted with AES-256-GCM (`DATA_ENCRYPTION_KEY`). Sender name and address, recipients, dates and category are stored in plain text so lists can be sorted and filtered. Mail you open is removed (with `MARK_READ_ON_OPEN=true`); other mail is kept at most `SYNC_DAYS`, except open to-dos. Briefs are kept until the volume is wiped |
-| Email rendering | DOMPurify → sandboxed iframe (no scripts, opaque origin) → CSP blocks remote images (no tracking pixels) |
+| Email rendering | DOMPurify → sandboxed iframe with scripts disabled → CSP allows images only from the app itself, so remote images load through a **private image proxy**: the server fetches them, so senders never see your IP address, location or browser (they can still tell the email was opened). The proxy only fetches public http(s) addresses on standard ports (checked at connect time), images only, max 5 MB |
+| Attachments | Not stored. Fetched from iCloud when you tap one; served as a download (never rendered in the app), active types like HTML/SVG forced to `application/octet-stream` |
 | Headers | Strict CSP, `frame-ancestors 'none'`, `no-referrer`, `no-store` on API responses |
 | AI | Emails are passed as JSON data and the model is told to treat them as untrusted; it has no tools, and its output is schema-validated |
 | Push | Payloads are end-to-end encrypted (RFC 8291); set `BRIEF_PUSH_PREVIEW=false` to keep content off the lock screen |

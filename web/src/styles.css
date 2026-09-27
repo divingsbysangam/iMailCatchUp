@@ -293,11 +293,30 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* ---------- message view ---------- */
 .crumb { margin-top: var(--spacing-8); }
-.msg-head { margin-top: var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-3); }
-.msg-head h1 { font-size: clamp(24px, 3.6vw, var(--text-3xl)); letter-spacing: var(--tracking-tight); line-height: 1.1; overflow-wrap: anywhere; }
+.msg-head { margin-top: var(--spacing-4); display: flex; flex-direction: column; gap: var(--spacing-2); }
+.msg-head h1 { font-size: clamp(22px, 3vw, 30px); letter-spacing: var(--tracking-tight); line-height: 1.15; overflow-wrap: anywhere; margin-bottom: var(--spacing-1); }
+.msg-head .coord { overflow-wrap: anywhere; }
+.msg-waypoint { margin-top: var(--spacing-5); }
 .msg-actions { display: flex; gap: var(--spacing-2); flex-wrap: wrap; align-items: center; margin-top: var(--spacing-5); }
-.email-frame { display: block; width: 100%; border: 1px solid var(--color-border); background: #fff; margin-top: var(--spacing-6); }
-.email-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-sans); font-size: var(--text-base); line-height: var(--leading-normal); margin-top: var(--spacing-6); max-width: var(--container-prose); }
+.msg-actions .read-note { flex: 1 1 220px; margin: 0 0 0 var(--spacing-2); }
+/* The email itself: no box around it, a hairline above, its own background edge to edge. */
+.msg-body { --email-inset: var(--gutter); margin: var(--spacing-5) calc(-1 * var(--gutter)) 0; border-top: 1px solid var(--color-border); }
+.msg-body .email-text { padding-inline: var(--email-inset); }
+.email-frame { display: block; width: 100%; border: 0; background: #fff; }
+.email-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-sans); font-size: var(--text-base); line-height: var(--leading-normal); padding-top: var(--spacing-5); max-width: var(--container-prose); }
+.attachments { border-top: 1px solid var(--color-border); padding-top: var(--spacing-5); }
+.attachments ul { list-style: none; margin: var(--spacing-2) 0 0; padding: 0; }
+.att {
+  display: flex; align-items: center; gap: var(--spacing-3); width: 100%; min-height: 48px; padding: var(--spacing-3) 0;
+  background: none; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0;
+  font: inherit; font-size: var(--text-base); line-height: var(--leading-snug); color: var(--color-foreground); text-align: left; cursor: pointer;
+}
+.att .ico { flex: none; }
+.att .att-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.att .coord { flex: none; }
+.att:hover .att-name { text-decoration: underline; text-underline-offset: 3px; }
+.att:disabled { cursor: progress; }
+.att:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 /* ---------- forms ---------- */
 .field { display: flex; flex-direction: column; gap: var(--spacing-2); margin-top: var(--spacing-5); max-width: 420px; }
@@ -383,6 +402,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 /* ---------- email pop-up: a plain sheet (no shadow, blur or rounding), ink scrim behind ---------- */
 html.modal-open { overflow: hidden; }
 dialog.sheet {
+  --sheet-pad: var(--spacing-8);
   border: 1px solid var(--color-border); border-radius: var(--radius-none); padding: 0;
   background: var(--color-background); color: var(--color-foreground);
   width: min(880px, calc(100vw - 2 * var(--spacing-6))); max-width: none;
@@ -392,19 +412,22 @@ dialog.sheet {
 dialog.sheet::backdrop { background: rgba(20, 20, 19, 0.55); }
 .sheet-bar {
   position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--spacing-5);
-  padding: var(--spacing-3) var(--spacing-6); background: var(--color-background); border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-3) var(--sheet-pad); background: var(--color-background); border-bottom: 1px solid var(--color-border);
 }
 .sheet-bar .coord { flex: 1 1 auto; }
-.sheet-body { padding: var(--spacing-4) var(--spacing-6) var(--spacing-12); }
+.sheet-body { padding: var(--spacing-2) var(--sheet-pad) var(--spacing-10); }
 .sheet-body .msg-head { margin-top: var(--spacing-4); }
+.sheet-body .msg-body { --email-inset: var(--sheet-pad); margin-inline: calc(-1 * var(--sheet-pad)); }
 .msg-loading { padding: var(--spacing-8) 0; }
 @media (max-width: 640px) {
-  dialog.sheet { width: 100vw; height: 100dvh; border: 0; }
-  .sheet-bar { padding: var(--spacing-2) var(--spacing-4); padding-top: max(var(--spacing-2), env(safe-area-inset-top)); }
+  dialog.sheet { --sheet-pad: var(--spacing-4); width: 100vw; height: 100dvh; border: 0; }
+  .sheet-bar { padding: var(--spacing-2) var(--sheet-pad); padding-top: max(var(--spacing-2), env(safe-area-inset-top)); }
   .sheet-bar .sheet-full { display: none; }
-  .sheet-body { padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-12) + env(safe-area-inset-bottom)); }
+  .sheet-body { padding: 0 var(--sheet-pad) calc(var(--spacing-8) + env(safe-area-inset-bottom)); }
+  .msg-head { margin-top: var(--spacing-3); }
+  .msg-actions { margin-top: var(--spacing-4); }
+  .msg-actions .read-note { flex-basis: 100%; margin: var(--spacing-1) 0 0; }
 }
-.read-note { margin-top: var(--spacing-3); }
 .row.read .who, .row.read .subj { color: var(--color-muted); }
 
 /* ---------- icon-only buttons (square, hairline, no shadow) ---------- */

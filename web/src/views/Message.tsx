@@ -1,23 +1,59 @@
-import DOMPurify from "dompurify";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { api, sender, type MessageDetail } from "../api";
-import { IconButton } from "../lib/icons";
+import { useEffect, useRef, useState } from "react";
+import { api, sender, type AttachmentInfo, type MessageDetail } from "../api";
+import { EmailFrame } from "../lib/emailFrame";
+import { Icon, IconButton } from "../lib/icons";
 
-/**
- * Email HTML is hostile input. Layers of defence:
- * 1. DOMPurify strips scripts, event handlers, forms, iframes, etc.
- * 2. Rendered in a sandboxed iframe (no scripts, no same-origin access to this app).
- * 3. The page CSP (inherited by srcdoc) blocks remote images/fonts → no tracking pixels.
- */
-function buildSrcDoc(html: string): string {
-  const clean = DOMPurify.sanitize(html, {
-    WHOLE_DOCUMENT: false,
-    FORBID_TAGS: ["form", "input", "button", "textarea", "select", "iframe", "object", "embed", "link", "meta", "base"],
-    FORBID_ATTR: ["srcset"],
-  });
-  return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank">
-<style>body{margin:0;padding:16px;font:16px/1.6 system-ui,sans-serif;color:#141413;background:#fff;word-wrap:break-word}img{max-width:100%;height:auto}table{max-width:100%}</style>
-</head><body>${clean}</body></html>`;
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Attachments are fetched from iCloud when tapped; nothing is stored in the app. */
+function Attachments({ id, files }: { id: number; files: AttachmentInfo[] }) {
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  if (!files.length) return null;
+
+  const download = async (f: AttachmentInfo) => {
+    setBusy(f.index);
+    setError(null);
+    try {
+      const res = await fetch(`/api/messages/${id}/attachments/${f.index}`, { credentials: "same-origin" });
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${res.status}`);
+      const url = URL.createObjectURL(await res.blob());
+      const a = Object.assign(document.createElement("a"), { href: url, download: f.filename });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setError(`Couldn't download ${f.filename}: ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="attachments" aria-labelledby={`att-${id}`}>
+      <p className="eyebrow" id={`att-${id}`}>
+        {files.length} attachment{files.length === 1 ? "" : "s"}
+      </p>
+      <ul>
+        {files.map((f) => (
+          <li key={f.index}>
+            <button type="button" className="att" onClick={() => void download(f)} disabled={busy !== null} aria-busy={busy === f.index}>
+              <Icon name="clip" />
+              <span className="att-name">{f.filename}</span>
+              <span className="coord">{busy === f.index ? "Downloading…" : fileSize(f.size)}</span>
+              <Icon name="download" label="Download" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && <p className="error-line" role="alert">{error}</p>}
+    </section>
+  );
 }
 
 /**
@@ -62,7 +98,6 @@ export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
   const [msg, setMsg] = useState<MessageDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showHtml, setShowHtml] = useState(true);
-  const [height, setHeight] = useState(480);
 
   useEffect(() => {
     setMsg(null);
@@ -75,7 +110,6 @@ export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
       (err) => setError((err as Error).message),
     );
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const srcDoc = useMemo(() => (msg?.html ? buildSrcDoc(msg.html) : null), [msg]);
 
   const toggleTodo = async () => {
     if (!msg) return;
@@ -97,14 +131,15 @@ export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
       <header className="msg-head">
         <p className="eyebrow">{msg.categoryLabel ?? "Email"}{msg.archived ? " · Archived in iCloud" : ""}</p>
         <h1 id={titleId} tabIndex={-1}>{msg.subject || "(no subject)"}</h1>
+        <p className="coord">From {sender(msg)}{msg.fromName && msg.fromAddress ? ` <${msg.fromAddress}>` : ""}</p>
         <p className="coord">
-          From {sender(msg)}{msg.fromName && msg.fromAddress ? ` <${msg.fromAddress}>` : ""} · {new Date(msg.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-          {msg.hasAttachments ? " · Has attachments (open in iCloud Mail)" : ""}
+          {new Date(msg.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+          {msg.attachments.length ? ` · ${msg.attachments.length} attachment${msg.attachments.length === 1 ? "" : "s"}` : ""}
         </p>
       </header>
 
       {msg.summary && (
-        <aside className="waypoint" aria-label="AI summary">
+        <aside className="waypoint msg-waypoint" aria-label="AI summary">
           <p className="wp-kicker">Summary · written by AI{msg.highlight ? ` · ${msg.highlight}` : ""}</p>
           <p className="ai">{msg.summary}</p>
         </aside>
@@ -118,35 +153,21 @@ export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
         {msg.html && (
           <IconButton icon="text" pressed={!showHtml} label={showHtml ? "Show plain text" : "Show formatted"} onClick={() => setShowHtml(!showHtml)} />
         )}
+        {readMode && (
+          <p className="coord read-note" role="status">
+            {readMode.keepUnread
+              ? "Stays unread in iCloud and in this app."
+              : msg.todo
+                ? "Closing marks it read in iCloud. It stays here while it's on your to-dos."
+                : "Closing marks it read in iCloud and removes it from this app."}
+          </p>
+        )}
       </div>
-      {readMode && (
-        <p className="coord read-note" role="status">
-          {readMode.keepUnread
-            ? "Stays unread in iCloud and in this app."
-            : msg.todo
-              ? "Closing marks it read in iCloud. It stays here while it's on your to-dos."
-              : "Closing marks it read in iCloud and removes it from this app."}
-        </p>
-      )}
 
-      {showHtml && srcDoc ? (
-        <>
-          <iframe
-            title="Email content"
-            className="email-frame"
-            sandbox="allow-popups allow-popups-to-escape-sandbox"
-            referrerPolicy="no-referrer"
-            srcDoc={srcDoc}
-            style={{ height }}
-          />
-          <div className="foot-actions">
-            <IconButton icon="expand" label="Show more of the email" onClick={() => setHeight((h) => h + 800)} />
-            <span className="coord">Remote images blocked</span>
-          </div>
-        </>
-      ) : (
-        <pre className="email-text">{msg.text}</pre>
-      )}
+      <div className="msg-body">
+        {showHtml && msg.html ? <EmailFrame html={msg.html} /> : <pre className="email-text">{msg.text}</pre>}
+      </div>
+      <Attachments id={msg.id} files={msg.attachments} />
     </article>
   );
 }
