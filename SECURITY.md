@@ -1,6 +1,6 @@
 # Security
 
-iMailCatchUp holds the keys to a real mailbox, so it is built to be conservative.
+Surface holds the keys to a real mailbox, so it is built to be conservative.
 This page explains the threat model and what protects you.
 
 ## Reporting a vulnerability
@@ -23,7 +23,7 @@ An iCloud **app-specific password** grants full IMAP/SMTP access to your mailbox
 | CSRF | SameSite=Strict + every non-GET request must carry `Origin: PUBLIC_ORIGIN` |
 | Transport | HTTPS (Railway) + HSTS; IMAP over TLS with certificate verification on |
 | Mailbox | Opened **read-only** by default. With `AUTO_ARCHIVE=true` / `MARK_READ_ON_OPEN=true` (opt-in) the app marks mail read and moves brief-bound mail to one folder; it never deletes mail in iCloud |
-| Data at rest | Subjects, snippets, bodies and briefs encrypted with AES-256-GCM (`DATA_ENCRYPTION_KEY`); only the last `SYNC_DAYS` of mail kept |
+| Data at rest | Subjects, snippets, bodies, AI summaries and briefs encrypted with AES-256-GCM (`DATA_ENCRYPTION_KEY`). Sender name and address, recipients, dates and category are stored in plain text so lists can be sorted and filtered. Mail you open is removed (with `MARK_READ_ON_OPEN=true`); other mail is kept at most `SYNC_DAYS`, except open to-dos. Briefs are kept until the volume is wiped |
 | Email rendering | DOMPurify → sandboxed iframe (no scripts, opaque origin) → CSP blocks remote images (no tracking pixels) |
 | Headers | Strict CSP, `frame-ancestors 'none'`, `no-referrer`, `no-store` on API responses |
 | AI | Emails are passed as JSON data and the model is told to treat them as untrusted; it has no tools, and its output is schema-validated |
@@ -34,7 +34,8 @@ An iCloud **app-specific password** grants full IMAP/SMTP access to your mailbox
 ## What you are trusting
 
 - **Railway** hosts the container, env vars and volume. They can technically access them.
-- **OpenAI** receives the sender, subject and a trimmed excerpt (quoted replies, signatures and links removed; max `BRIEF_BODY_CHARS`, default 800 characters) of each email in the brief window. Newsletters and automated notifications are sent the same way, with their boilerplate removed (max `BRIEF_BULK_CHARS`, default 800).
+- **Cloudflare** (if you proxy through it) terminates HTTPS, so it can technically see everything the app sends to your browser, including email content and your login.
+- **OpenAI** receives the sender, subject, date and a trimmed excerpt (quoted replies, signatures and links removed; max `BRIEF_BODY_CHARS`, default 800 characters) of **every newly synced email**, once, to screen it. Newsletters and automated notifications are sent the same way, with their boilerplate removed (max `BRIEF_BULK_CHARS`, default 800). At brief time it receives only the senders, subjects and the summaries it wrote earlier.
   Under OpenAI's API terms, API data isn't used for training by default, but it may be retained for a period for abuse monitoring.
   Check their current policy; if that's not acceptable, don't enable briefs.
 - **Google (FCM)** delivers push messages for Android Chrome but can't read the encrypted payload.
@@ -45,3 +46,4 @@ An iCloud **app-specific password** grants full IMAP/SMTP access to your mailbox
 - If a phone is lost: Settings → *Sign out everywhere*, then rotate `ICLOUD_APP_PASSWORD` at appleid.apple.com.
 - Keep a private backup of `DATA_ENCRYPTION_KEY`; rotating it makes stored mail/briefs unreadable (mail re-syncs, old briefs are lost).
 - To rotate the login password or TOTP, run `npm run setup` again and update the variables.
+- If `CLOUDFLARE_ORIGIN_SECRET` leaks, generate a new one and update it in both Railway and the Cloudflare Transform Rule.
