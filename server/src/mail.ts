@@ -12,6 +12,11 @@ function snippetOf(text: string): string {
   return text.replace(/\s+/g, " ").trim().slice(0, 240);
 }
 
+/** IMAP SEARCH criteria for the messages we keep locally. Exported for tests. */
+export function syncSearchQuery(since: Date, unreadOnly: boolean): { since: Date; seen?: false } {
+  return unreadOnly ? { since, seen: false } : { since };
+}
+
 let running: Promise<SyncResult> | null = null;
 
 export interface SyncResult {
@@ -57,14 +62,15 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
         // UIDVALIDITY change means old UIDs are meaningless: drop our copy of that mailbox.
         db.prepare("DELETE FROM messages WHERE mailbox = ? AND uid_validity != ?").run(mailbox, uidValidity);
 
-        const found = (await client.search({ since }, { uid: true })) || [];
+        const found = (await client.search(syncSearchQuery(since, config.SYNC_UNREAD_ONLY), { uid: true })) || [];
         const remoteUids = new Set(found);
         const localRows = db
           .prepare("SELECT uid FROM messages WHERE mailbox = ? AND uid_validity = ?")
           .all(mailbox, uidValidity) as { uid: number }[];
         const localUids = new Set(localRows.map((r) => r.uid));
 
-        // Messages that disappeared remotely (deleted/moved) or aged out of the sync window.
+        // Messages that disappeared remotely (deleted/moved), aged out of the sync window, or
+        // (with SYNC_UNREAD_ONLY) were read elsewhere.
         const del = db.prepare("DELETE FROM messages WHERE mailbox = ? AND uid_validity = ? AND uid = ?");
         for (const uid of localUids) {
           if (!remoteUids.has(uid)) {

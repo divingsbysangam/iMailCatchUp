@@ -81,6 +81,7 @@ See [`.env.example`](.env.example) for every variable. Highlights:
 | `BRIEF_TIME` / `BRIEF_TIMEZONE` | `19:00` / `UTC` | 24h time, IANA time zone |
 | `MAILBOXES` | `INBOX` | Comma-separated IMAP folders |
 | `SYNC_DAYS` | `14` | How much mail is kept locally |
+| `SYNC_UNREAD_ONLY` | `true` | Only unread mail is synced; mail you read elsewhere is removed on the next sync |
 | `BRIEF_PUSH_PREVIEW` | `true` | `false` keeps email content off the lock screen |
 | `BRIEF_BODY_CHARS` | `800` | Per-email characters sent to the AI (see below) |
 | `BRIEF_BULK_CHARS` | `800` | Same for newsletters/notifications; `0` = sender + subject only |
