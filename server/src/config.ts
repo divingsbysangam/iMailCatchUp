@@ -22,6 +22,11 @@ const schema = z.object({
     .transform((s) => s.split(",").map((m) => m.trim()).filter(Boolean)),
   SYNC_DAYS: z.coerce.number().int().min(1).max(90).default(14),
   SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(2).max(240).default(10),
+  /**
+   * true = only unread mail is synced; once you read a message elsewhere (e.g. iCloud Mail on a Mac),
+   * it is removed from this app on the next sync. false = all mail in the sync window.
+   */
+  SYNC_UNREAD_ONLY: bool.default(true),
 
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().default("gpt-5-mini"),
