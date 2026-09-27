@@ -46,6 +46,8 @@ TOTP_SECRET=${totpSecret}
 DATA_ENCRYPTION_KEY=${randomBytes(32).toString("base64")}
 VAPID_PUBLIC_KEY=${vapid.publicKey}
 VAPID_PRIVATE_KEY=${vapid.privateKey}
+# Only if the app sits behind Cloudflare (see README → Cloudflare):
+CLOUDFLARE_ORIGIN_SECRET=${randomBytes(32).toString("hex")}
 
 # Add TOTP_SECRET to your authenticator app (Google Authenticator, Aegis, 1Password, ...):
 #   "Enter a setup key" → key: ${totpSecret} (time-based)

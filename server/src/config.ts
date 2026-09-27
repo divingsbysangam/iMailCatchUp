@@ -53,6 +53,22 @@ const schema = z.object({
     .refine((k) => Buffer.from(k, "base64").length === 32, "must be 32 bytes, base64"),
   SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24 * 90).default(24 * 14),
 
+  /**
+   * Header holding the client IP, set by your hosting proxy (Railway: X-Real-IP). Empty = use the TCP
+   * peer address (only when the app is exposed directly, without a proxy).
+   */
+  CLIENT_IP_HEADER: z
+    .string()
+    .default("x-real-ip")
+    .transform((h) => h.trim().toLowerCase()),
+  /**
+   * Shared secret that a Cloudflare Transform Rule adds as the X-Origin-Auth request header.
+   * When it matches, CF-Connecting-IP is trusted as the client IP.
+   */
+  CLOUDFLARE_ORIGIN_SECRET: z.string().min(32, "at least 32 chars; `openssl rand -hex 32`").optional(),
+  /** Reject every request that didn't come through Cloudflare (except /healthz). Needs CLOUDFLARE_ORIGIN_SECRET. */
+  REQUIRE_CLOUDFLARE: bool.default(false),
+
   VAPID_PUBLIC_KEY: z.string().min(1),
   VAPID_PRIVATE_KEY: z.string().min(1),
   VAPID_SUBJECT: z.string().regex(/^(mailto:|https:\/\/)/, "mailto: or https:// URL"),
@@ -60,8 +76,13 @@ const schema = z.object({
 
 export type Config = z.infer<typeof schema>;
 
+const checked = schema.refine((c) => !c.REQUIRE_CLOUDFLARE || c.CLOUDFLARE_ORIGIN_SECRET, {
+  path: ["REQUIRE_CLOUDFLARE"],
+  message: "needs CLOUDFLARE_ORIGIN_SECRET to be set",
+});
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = schema.safeParse(env);
+  const parsed = checked.safeParse(env);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`);
     throw new Error(`Invalid configuration:\n${issues.join("\n")}`);

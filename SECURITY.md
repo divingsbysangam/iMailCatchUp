@@ -17,6 +17,8 @@ An iCloud **app-specific password** grants full IMAP/SMTP access to your mailbox
 | Area | Measure |
 |---|---|
 | Login | Password (scrypt) **and** TOTP code; TOTP codes can't be replayed; 5 attempts / 15 min per IP |
+| Client IP | Taken from headers clients can't forge (Railway's `X-Real-IP`; Cloudflare's `CF-Connecting-IP` only with the origin secret), never from `X-Forwarded-For` |
+| Origin lock (optional) | `REQUIRE_CLOUDFLARE=true` refuses requests that don't carry the secret header only your Cloudflare zone adds |
 | Sessions | Random 256-bit token, only its SHA-256 stored; `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; "sign out everywhere" |
 | CSRF | SameSite=Strict + every non-GET request must carry `Origin: PUBLIC_ORIGIN` |
 | Transport | HTTPS (Railway) + HSTS; IMAP over TLS with certificate verification on |
