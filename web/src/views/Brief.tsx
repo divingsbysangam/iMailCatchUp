@@ -157,7 +157,7 @@ export function BriefView({ status, briefId, onChange, version }: { status: Stat
           <p className="eyebrow">
             {selected ? `${slotName(selected.slot)} brief` : "Brief"} · {dayLabel(shownDate)}
           </p>
-          <IconButton icon="spark" signal label={busy ? "Making a brief…" : "Brief me now"} onClick={generate} disabled={busy} />
+          <IconButton icon="flash" signal label={busy ? "Making a brief…" : "Brief me now"} onClick={generate} disabled={busy} />
         </div>
         <h1 id="brief-title" tabIndex={-1}>
           {c ? c.headline : selected ? "Loading the brief…" : shownDate === today ? "No brief yet today." : "No brief that day."}
