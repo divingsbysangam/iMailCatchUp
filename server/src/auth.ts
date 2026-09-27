@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { AppContext } from "./context.js";
+import { clientIp } from "./clientip.js";
 import { randomToken, sha256, verifyPassword, verifyTotp } from "./crypto.js";
 import { kvGet, kvSet } from "./db.js";
 
@@ -66,7 +67,7 @@ export function registerAuth(app: FastifyInstance, ctx: AppContext): void {
       const totpOk = step !== null && step > lastStep;
 
       if (!pwOk || !totpOk) {
-        req.log.warn({ ip: req.ip }, "failed login");
+        req.log.warn({ ip: clientIp(req, config) }, "failed login");
         return reply.code(401).send({ error: "Invalid credentials" });
       }
       kvSet(db, "totp_last_step", String(step));
@@ -80,7 +81,7 @@ export function registerAuth(app: FastifyInstance, ctx: AppContext): void {
         now + ttlMs,
         (req.headers["user-agent"] ?? "").slice(0, 300),
       );
-      req.log.info({ ip: req.ip }, "login ok");
+      req.log.info({ ip: clientIp(req, config) }, "login ok");
       return reply
         .setCookie(cookieName, token, {
           httpOnly: true,

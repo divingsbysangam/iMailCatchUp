@@ -55,6 +55,22 @@ Keep it at **1 replica**: SQLite and the scheduler assume a single instance.
 The evening brief arrives at `BRIEF_TIME`. If the server was down then, it runs as soon as the server is back (same day).
 You can also tap **Brief me now** on the Briefs tab.
 
+### Optional: put it behind Cloudflare
+
+If your domain's DNS is on Cloudflare, you can proxy the app through it (orange cloud) and lock the
+Railway service so it only accepts traffic from your Cloudflare zone:
+
+1. Railway → service → Settings → **+ Custom Domain** (e.g. `brief.example.com`). Add the **CNAME**
+   (proxied, orange cloud) and **TXT** records it shows in Cloudflare → DNS.
+2. Cloudflare → **Rules → Configuration Rules**: hostname equals your subdomain → **SSL: Full**
+   (Railway requires Full; *Full (strict)* won't work). This avoids changing the whole zone's SSL mode.
+3. Cloudflare → **Rules → Transform Rules → Modify Request Header**: hostname equals your subdomain →
+   **Set static** header `X-Origin-Auth` = the `CLOUDFLARE_ORIGIN_SECRET` from `npm run setup`.
+4. Railway variables: `CLOUDFLARE_ORIGIN_SECRET=<same value>`. Check the app works via the subdomain,
+   then set `REQUIRE_CLOUDFLARE=true`, set `PUBLIC_ORIGIN` to the subdomain, and remove the
+   `*.up.railway.app` domain.
+5. Optional: Cloudflare → Security → WAF → Custom rules → block countries you never log in from.
+
 ## Configuration
 
 See [`.env.example`](.env.example) for every variable. Highlights:

@@ -5,6 +5,7 @@ import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 import { existsSync } from "node:fs";
 import { registerAuth } from "./auth.js";
+import { clientIp, viaCloudflare } from "./clientip.js";
 import type { Config } from "./config.js";
 import { FieldCipher } from "./crypto.js";
 import type { DB } from "./db.js";
@@ -21,8 +22,8 @@ export async function buildApp(opts: {
   const { config, db } = opts;
   const app = Fastify({
     logger: opts.logger ?? true,
-    // Railway (and most PaaS) terminate TLS at a proxy; trust it so req.ip / rate limits are per client.
-    trustProxy: true,
+    // Not trustProxy: X-Forwarded-For is client-controlled. The client IP comes from clientIp().
+    trustProxy: false,
     bodyLimit: 64 * 1024,
   });
   const ctx: AppContext = { config, db, cipher: new FieldCipher(config.DATA_ENCRYPTION_KEY), log: app.log };
@@ -53,7 +54,20 @@ export async function buildApp(opts: {
     crossOriginEmbedderPolicy: false,
   });
   await app.register(cookie);
-  await app.register(rateLimit, { global: true, max: 300, timeWindow: "1 minute" });
+  if (config.REQUIRE_CLOUDFLARE) {
+    // Origin lock: only Cloudflare knows the secret, so direct hits on the Railway address are refused
+    // (keeps Cloudflare's country/WAF rules from being bypassed). Railway's health check is exempt.
+    app.addHook("onRequest", async (req, reply) => {
+      if (req.url === "/healthz" || viaCloudflare(req, config)) return;
+      return reply.code(403).send({ error: "Forbidden" });
+    });
+  }
+  await app.register(rateLimit, {
+    global: true,
+    max: 300,
+    timeWindow: "1 minute",
+    keyGenerator: (req) => clientIp(req, config),
+  });
 
   app.addHook("onSend", async (req, reply) => {
     if (req.url.startsWith("/api/")) reply.header("Cache-Control", "no-store");
