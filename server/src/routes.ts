@@ -133,6 +133,8 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       messageCount: r.message_count,
       model: r.model,
       trigger: r.trigger,
+      inputTokens: r.input_tokens,
+      outputTokens: r.output_tokens,
       content,
       emails,
     };

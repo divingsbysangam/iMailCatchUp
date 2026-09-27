@@ -3,8 +3,8 @@ import { z } from "zod";
 import type { AppContext } from "./context.js";
 import { kvGet } from "./db.js";
 import { sendPushToAll } from "./push.js";
+import { isBulkMail, trimBody } from "./trim.js";
 
-const MAX_BODY_CHARS_PER_EMAIL = 1500;
 const DEFAULT_LOOKBACK_MS = 24 * 3600 * 1000;
 const MAX_LOOKBACK_MS = 3 * 24 * 3600 * 1000;
 
@@ -37,7 +37,9 @@ export interface EmailForBrief {
   from: string;
   subject: string;
   date: string;
-  body: string;
+  /** Trimmed body; omitted for newsletters/notifications to save tokens. */
+  body?: string;
+  bulk?: true;
 }
 
 const SYSTEM_PROMPT = `You write a concise evening email brief for one person.
@@ -55,6 +57,8 @@ Output: a single JSON object, no markdown, with exactly these keys:
   "highlights": [ { "emailId": number, "priority": "high"|"medium"|"low", "why": string } ],
   "actionItems": [ { "task": string, "emailId": number|null, "due": string|null } ]
 }
+Emails with "bulk": true are newsletters/notifications; only their sender and subject are given.
+Bodies are shortened (quoted replies, signatures and links removed; "[link]" marks a removed URL).
 Include only emails worth attention in "highlights" (skip newsletters/promotions unless notable).
 Order highlights by priority. Keep "why" to one sentence.`;
 
@@ -94,7 +98,7 @@ export async function generateBrief(
 
   const rows = db
     .prepare(
-      `SELECT id, from_name, from_address, subject_enc, text_enc, date
+      `SELECT id, from_name, from_address, subject_enc, text_enc, date, is_bulk
        FROM messages WHERE date >= ? AND date <= ? ORDER BY date DESC LIMIT ?`,
     )
     .all(periodStart, now, config.BRIEF_MAX_EMAILS) as {
@@ -104,18 +108,24 @@ export async function generateBrief(
     subject_enc: string | null;
     text_enc: string | null;
     date: number;
+    is_bulk: number;
   }[];
 
-  const emails: EmailForBrief[] = rows.map((r) => ({
-    id: r.id,
-    from: r.from_name ? `${r.from_name} <${r.from_address ?? ""}>` : (r.from_address ?? "unknown"),
-    subject: cipher.decryptNullable(r.subject_enc) ?? "(no subject)",
-    date: new Date(r.date).toLocaleString("en-GB", { timeZone: config.BRIEF_TIMEZONE }),
-    body: (cipher.decryptNullable(r.text_enc) ?? "").replace(/\s+/g, " ").slice(0, MAX_BODY_CHARS_PER_EMAIL),
-  }));
+  const emails: EmailForBrief[] = rows.map((r) => {
+    const base = {
+      id: r.id,
+      from: r.from_name ? `${r.from_name} <${r.from_address ?? ""}>` : (r.from_address ?? "unknown"),
+      subject: cipher.decryptNullable(r.subject_enc) ?? "(no subject)",
+      date: new Date(r.date).toLocaleString("en-GB", { timeZone: config.BRIEF_TIMEZONE }),
+    };
+    // Sender check too, for mail synced before bulk detection existed.
+    if (r.is_bulk === 1 || isBulkMail(null, r.from_address)) return { ...base, bulk: true as const };
+    return { ...base, body: trimBody(cipher.decryptNullable(r.text_enc) ?? "", config.BRIEF_BODY_CHARS) };
+  });
 
   let content: BriefContent;
   let model: string | null = null;
+  let usage: { input: number; output: number } | null = null;
   if (emails.length === 0) {
     content = { headline: "No new mail since your last brief.", summary: "", highlights: [], actionItems: [] };
   } else {
@@ -131,6 +141,7 @@ export async function generateBrief(
     if (!raw) throw new Error("Empty response from OpenAI");
     content = parseBrief(raw, new Set(emails.map((e) => e.id)));
     model = res.model;
+    if (res.usage) usage = { input: res.usage.prompt_tokens, output: res.usage.completion_tokens };
   }
 
   if (opts.syncFailed) {
@@ -141,10 +152,20 @@ export async function generateBrief(
 
   const info = db
     .prepare(
-      `INSERT INTO briefs (created_at, period_start, period_end, message_count, model, trigger, content_enc)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO briefs (created_at, period_start, period_end, message_count, model, trigger, content_enc, input_tokens, output_tokens)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(now, periodStart, now, emails.length, model, trigger, cipher.encrypt(JSON.stringify(content)));
+    .run(
+      now,
+      periodStart,
+      now,
+      emails.length,
+      model,
+      trigger,
+      cipher.encrypt(JSON.stringify(content)),
+      usage?.input ?? null,
+      usage?.output ?? null,
+    );
   const id = Number(info.lastInsertRowid);
 
   await sendPushToAll(ctx, {
@@ -153,6 +174,9 @@ export async function generateBrief(
     url: `/#/briefs/${id}`,
     tag: "brief",
   });
-  ctx.log.info({ id, emails: emails.length, trigger }, "brief generated");
+  ctx.log.info(
+    { id, emails: emails.length, bulk: emails.filter((e) => e.bulk).length, trigger, inputTokens: usage?.input, outputTokens: usage?.output },
+    "brief generated",
+  );
   return { id, content };
 }

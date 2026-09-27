@@ -107,7 +107,8 @@ export function BriefView({ id }: { id: number }) {
         </>
       )}
       <p className="muted small">
-        {brief.messageCount} emails summarised{brief.model ? ` by ${brief.model}` : ""}. AI summaries can be wrong — check the original email before acting.
+        {brief.messageCount} emails summarised{brief.model ? ` by ${brief.model}` : ""}
+        {brief.inputTokens != null && ` (${brief.inputTokens.toLocaleString()} in / ${(brief.outputTokens ?? 0).toLocaleString()} out tokens)`}. AI summaries can be wrong — check the original email before acting.
       </p>
     </article>
   );

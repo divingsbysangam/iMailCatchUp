@@ -73,7 +73,15 @@ describe("generateBrief", async () => {
     const log = { info() {}, warn() {}, error() {} } as never;
     db.prepare(
       "INSERT INTO messages (mailbox, uid_validity, uid, from_address, subject_enc, text_enc, date, synced_at) VALUES ('INBOX','1',1,'a@b.c',?,?,?,?)",
-    ).run(cipher.encrypt("Invoice due"), cipher.encrypt("Pay by Friday"), Date.now() - 1000, Date.now());
+    ).run(
+      cipher.encrypt("Invoice due"),
+      cipher.encrypt("Pay by Friday at https://pay.example.com/x\n\nOn Mon, Bob <b@c.d> wrote:\n> old thread"),
+      Date.now() - 1000,
+      Date.now(),
+    );
+    db.prepare(
+      "INSERT INTO messages (mailbox, uid_validity, uid, from_address, subject_enc, text_enc, date, is_bulk, synced_at) VALUES ('INBOX','1',2,'deals@shop.com',?,?,?,1,?)",
+    ).run(cipher.encrypt("50% off sale"), cipher.encrypt("Huge marketing body ".repeat(200)), Date.now() - 2000, Date.now());
 
     let prompt = "";
     const fakeOpenAI = {
@@ -83,6 +91,7 @@ describe("generateBrief", async () => {
             prompt = req.messages[1]!.content;
             return {
               model: "fake-model",
+              usage: { prompt_tokens: 321, completion_tokens: 45 },
               choices: [{ message: { content: JSON.stringify({ headline: "Invoice due Friday", summary: "One invoice.", highlights: [{ emailId: 1, priority: "high", why: "Payment" }], actionItems: [] }) } }],
             };
           },
@@ -91,9 +100,19 @@ describe("generateBrief", async () => {
     };
     const { id, content } = await generateBrief({ config, db, cipher, log }, "manual", { syncFailed: true }, fakeOpenAI as never);
     expect(prompt).toContain("Invoice due");
+    expect(prompt).toContain('"body":"Pay by Friday at [link]"'); // quoted thread + URL removed
+    expect(prompt).toContain('"subject":"50% off sale"');
+    expect(prompt).toContain('"bulk":true');
+    expect(prompt).not.toContain("Huge marketing body"); // newsletter body never sent
     expect(content.highlights).toHaveLength(1);
     expect(content.summary).toMatch(/^⚠ Couldn't reach iCloud/);
-    const row = db.prepare("SELECT content_enc, model FROM briefs WHERE id = ?").get(id) as { content_enc: string; model: string };
+    const row = db.prepare("SELECT content_enc, model, input_tokens, output_tokens FROM briefs WHERE id = ?").get(id) as {
+      content_enc: string;
+      model: string;
+      input_tokens: number;
+      output_tokens: number;
+    };
+    expect([row.input_tokens, row.output_tokens]).toEqual([321, 45]);
     expect(row.content_enc).not.toContain("Invoice");
     expect(row.model).toBe("fake-model");
   });

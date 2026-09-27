@@ -2,6 +2,7 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import type { AppContext } from "./context.js";
 import { kvSet } from "./db.js";
+import { isBulkMail } from "./trim.js";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
 const MAX_TEXT_CHARS = 200_000;
@@ -88,10 +89,10 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
         const insert = db.prepare(`
           INSERT OR IGNORE INTO messages
             (mailbox, uid_validity, uid, message_id, from_name, from_address, to_json,
-             subject_enc, snippet_enc, text_enc, html_enc, date, seen, flagged, has_attachments, size, synced_at)
+             subject_enc, snippet_enc, text_enc, html_enc, date, seen, flagged, has_attachments, is_bulk, size, synced_at)
           VALUES
             (@mailbox, @uidValidity, @uid, @messageId, @fromName, @fromAddress, @toJson,
-             @subject, @snippet, @text, @html, @date, @seen, @flagged, @hasAttachments, @size, @syncedAt)
+             @subject, @snippet, @text, @html, @date, @seen, @flagged, @hasAttachments, @isBulk, @size, @syncedAt)
         `);
         for (let i = 0; i < fresh.length; i += FETCH_BATCH) {
           const batch = fresh.slice(i, i + FETCH_BATCH);
@@ -124,6 +125,7 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
               seen: msg.flags?.has("\\Seen") ? 1 : 0,
               flagged: msg.flags?.has("\\Flagged") ? 1 : 0,
               hasAttachments: parsed.attachments.length > 0 ? 1 : 0,
+              isBulk: isBulkMail(parsed.headers, from?.address) ? 1 : 0,
               size: msg.size ?? null,
               syncedAt: Date.now(),
             });

@@ -59,6 +59,8 @@ export interface BriefDetail {
   messageCount: number;
   model: string | null;
   trigger: string;
+  inputTokens: number | null;
+  outputTokens: number | null;
   content: {
     headline: string;
     summary: string;

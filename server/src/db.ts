@@ -61,6 +61,11 @@ const MIGRATIONS: string[] = [
     value  TEXT NOT NULL
   );
   `,
+  `
+  ALTER TABLE messages ADD COLUMN is_bulk INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE briefs ADD COLUMN input_tokens INTEGER;
+  ALTER TABLE briefs ADD COLUMN output_tokens INTEGER;
+  `,
 ];
 
 export function openDb(path: string): DB {

@@ -38,6 +38,8 @@ const schema = z.object({
       }
     }, "must be an IANA time zone, e.g. Asia/Kolkata"),
   BRIEF_MAX_EMAILS: z.coerce.number().int().min(1).max(300).default(80),
+  /** Max characters of each (trimmed) email body sent to the AI. Newsletters send none. */
+  BRIEF_BODY_CHARS: z.coerce.number().int().min(100).max(4000).default(800),
   /** When false, the notification only says a brief is ready (nothing about content on the lock screen). */
   BRIEF_PUSH_PREVIEW: bool.default(true),
 

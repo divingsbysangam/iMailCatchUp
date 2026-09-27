@@ -66,6 +66,15 @@ See [`.env.example`](.env.example) for every variable. Highlights:
 | `MAILBOXES` | `INBOX` | Comma-separated IMAP folders |
 | `SYNC_DAYS` | `14` | How much mail is kept locally |
 | `BRIEF_PUSH_PREVIEW` | `true` | `false` keeps email content off the lock screen |
+| `BRIEF_BODY_CHARS` | `800` | Per-email characters sent to the AI (see below) |
+
+### Keeping AI costs low
+
+Before emails go to the model, each one is trimmed: quoted reply history, `>` lines, signatures,
+"Sent from my iPhone" footers and URLs are removed, and the rest is cut to `BRIEF_BODY_CHARS`.
+Newsletters and automated notifications (detected by `List-Unsubscribe` / `List-Id` / `Precedence` /
+`Auto-Submitted` headers or no-reply sender names) send only the sender and subject.
+Each brief records the tokens it used; you can see them at the bottom of the brief and in the server logs.
 
 ## Local development
 
