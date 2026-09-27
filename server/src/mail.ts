@@ -1,7 +1,7 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import type { AppContext } from "./context.js";
-import { kvSet } from "./db.js";
+import { kvGet, kvSet } from "./db.js";
 import { isBulkMail } from "./trim.js";
 
 const MAX_SOURCE_BYTES = 5 * 1024 * 1024;
@@ -15,6 +15,24 @@ function snippetOf(text: string): string {
 /** IMAP SEARCH criteria for the messages we keep locally. Exported for tests. */
 export function syncSearchQuery(since: Date, unreadOnly: boolean): { since: Date; seen?: false } {
   return unreadOnly ? { since, seen: false } : { since };
+}
+
+/** SQL condition for rows that sync may delete when they vanish from the server. */
+const NOT_RETAINED = "archived = 0 AND brief_id IS NULL AND NOT (todo = 1 AND todo_done_at IS NULL)";
+
+function imapClient(ctx: AppContext): ImapFlow {
+  const { config } = ctx;
+  return new ImapFlow({
+    host: config.IMAP_HOST,
+    port: config.IMAP_PORT,
+    secure: true,
+    auth: { user: config.ICLOUD_EMAIL, pass: config.ICLOUD_APP_PASSWORD },
+    logger: false,
+    connectionTimeout: 30_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 5 * 60_000,
+    // TLS certificate verification stays ON (the default). Never disable it.
+  });
 }
 
 let running: Promise<SyncResult> | null = null;
@@ -35,17 +53,7 @@ export function syncMail(ctx: AppContext): Promise<SyncResult> {
 
 async function doSync(ctx: AppContext): Promise<SyncResult> {
   const { config, db, cipher, log } = ctx;
-  const client = new ImapFlow({
-    host: config.IMAP_HOST,
-    port: config.IMAP_PORT,
-    secure: true,
-    auth: { user: config.ICLOUD_EMAIL, pass: config.ICLOUD_APP_PASSWORD },
-    logger: false,
-    connectionTimeout: 30_000,
-    greetingTimeout: 15_000,
-    socketTimeout: 5 * 60_000,
-    // TLS certificate verification stays ON (the default). Never disable it.
-  });
+  const client = imapClient(ctx);
 
   const result: SyncResult = { added: 0, removed: 0, mailboxes: [] };
   const since = new Date(Date.now() - config.SYNC_DAYS * 24 * 3600 * 1000);
@@ -70,13 +78,13 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
         const localUids = new Set(localRows.map((r) => r.uid));
 
         // Messages that disappeared remotely (deleted/moved), aged out of the sync window, or
-        // (with SYNC_UNREAD_ONLY) were read elsewhere.
-        const del = db.prepare("DELETE FROM messages WHERE mailbox = ? AND uid_validity = ? AND uid = ?");
+        // (with SYNC_UNREAD_ONLY) were read elsewhere. Kept locally: mail we archived ourselves, mail
+        // already in a brief (so it can still be opened from there) and open to-dos.
+        const del = db.prepare(
+          `DELETE FROM messages WHERE mailbox = ? AND uid_validity = ? AND uid = ? AND ${NOT_RETAINED}`,
+        );
         for (const uid of localUids) {
-          if (!remoteUids.has(uid)) {
-            del.run(mailbox, uidValidity, uid);
-            result.removed++;
-          }
+          if (!remoteUids.has(uid)) result.removed += del.run(mailbox, uidValidity, uid).changes;
         }
 
         // Refresh flags for messages we already have.
@@ -154,9 +162,70 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
   // Data minimisation: messages that left the sync window were removed above; also drop
   // mailboxes that are no longer configured.
   const placeholders = config.MAILBOXES.map(() => "?").join(",");
-  db.prepare(`DELETE FROM messages WHERE mailbox NOT IN (${placeholders})`).run(...config.MAILBOXES);
+  db.prepare(`DELETE FROM messages WHERE mailbox NOT IN (${placeholders}) AND ${NOT_RETAINED}`).run(...config.MAILBOXES);
+  // Retained rows (archived / briefed / done to-dos) still expire with the sync window.
+  db.prepare(
+    "DELETE FROM messages WHERE date < ? AND NOT (todo = 1 AND todo_done_at IS NULL) AND (archived = 1 OR brief_id IS NOT NULL OR todo = 1)",
+  ).run(since.getTime());
   kvSet(db, "last_sync_at", String(Date.now()));
   db.prepare("DELETE FROM kv WHERE key = 'last_sync_error'").run();
   log.info(result, "mail sync complete");
   return result;
+}
+
+/**
+ * Cora-style archiving (AUTO_ARCHIVE): marks brief-bound mail as read and moves it out of the inbox to
+ * ARCHIVE_FOLDER. Only mail received after archiving was first enabled is touched, never older backlog.
+ * The local copy is kept (archived = 1) so it still appears in the brief and can be opened.
+ */
+export async function archiveBriefMail(ctx: AppContext): Promise<{ moved: number }> {
+  const { config, db, log } = ctx;
+  if (!config.AUTO_ARCHIVE) return { moved: 0 };
+
+  let fromMs = Number(kvGet(db, "archive_from") ?? 0);
+  if (!fromMs) {
+    fromMs = Date.now();
+    kvSet(db, "archive_from", String(fromMs));
+  }
+  const rows = db
+    .prepare(
+      `SELECT id, mailbox, uid_validity, uid FROM messages
+       WHERE action = 'brief' AND archived = 0 AND date >= ? AND mailbox != ?`,
+    )
+    .all(fromMs, config.ARCHIVE_FOLDER) as { id: number; mailbox: string; uid_validity: string; uid: number }[];
+  if (!rows.length) return { moved: 0 };
+
+  const client = imapClient(ctx);
+  let moved = 0;
+  try {
+    await client.connect();
+    await client.mailboxCreate(config.ARCHIVE_FOLDER); // no-op if it already exists
+    const byMailbox = new Map<string, typeof rows>();
+    for (const r of rows) byMailbox.set(r.mailbox, [...(byMailbox.get(r.mailbox) ?? []), r]);
+
+    const mark = db.prepare("UPDATE messages SET archived = 1 WHERE id = ?");
+    for (const [mailbox, list] of byMailbox) {
+      const lock = await client.getMailboxLock(mailbox); // read-write: needed to flag and move
+      try {
+        if (!client.mailbox) continue;
+        const uidValidity = client.mailbox.uidValidity.toString();
+        const valid = list.filter((r) => r.uid_validity === uidValidity);
+        if (!valid.length) continue;
+        const range = valid.map((r) => r.uid).join(",");
+        await client.messageFlagsAdd(range, ["\\Seen"], { uid: true });
+        await client.messageMove(range, config.ARCHIVE_FOLDER, { uid: true });
+        db.transaction(() => valid.forEach((r) => mark.run(r.id)))();
+        moved += valid.length;
+      } finally {
+        lock.release();
+      }
+    }
+    await client.logout();
+  } catch (err) {
+    client.close();
+    log.error({ err }, "archiving failed");
+    throw err;
+  }
+  log.info({ moved, folder: config.ARCHIVE_FOLDER }, "archived brief mail");
+  return { moved };
 }

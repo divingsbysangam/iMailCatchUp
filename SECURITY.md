@@ -22,7 +22,7 @@ An iCloud **app-specific password** grants full IMAP/SMTP access to your mailbox
 | Sessions | Random 256-bit token, only its SHA-256 stored; `__Host-` cookie, `HttpOnly`, `Secure`, `SameSite=Strict`; "sign out everywhere" |
 | CSRF | SameSite=Strict + every non-GET request must carry `Origin: PUBLIC_ORIGIN` |
 | Transport | HTTPS (Railway) + HSTS; IMAP over TLS with certificate verification on |
-| Mailbox | Opened **read-only**: the app never changes flags, moves or deletes mail |
+| Mailbox | Opened **read-only** by default. With `AUTO_ARCHIVE=true` (opt-in) the app marks brief-bound mail read and moves it to one folder; it never deletes mail |
 | Data at rest | Subjects, snippets, bodies and briefs encrypted with AES-256-GCM (`DATA_ENCRYPTION_KEY`); only the last `SYNC_DAYS` of mail kept |
 | Email rendering | DOMPurify → sandboxed iframe (no scripts, opaque origin) → CSP blocks remote images (no tracking pixels) |
 | Headers | Strict CSP, `frame-ancestors 'none'`, `no-referrer`, `no-store` on API responses |
