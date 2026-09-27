@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, sender, type AttachmentInfo, type MessageDetail } from "../api";
+import { api, sender, type AttachmentInfo, type LiveMessage, type LiveRef, type MessageDetail } from "../api";
 import { EmailFrame } from "../lib/emailFrame";
 import { Icon, IconButton } from "../lib/icons";
 
@@ -10,7 +10,7 @@ function fileSize(bytes: number): string {
 }
 
 /** Attachments are fetched from iCloud when tapped; nothing is stored in the app. */
-function Attachments({ id, files }: { id: number; files: AttachmentInfo[] }) {
+function Attachments({ files, urlFor }: { files: AttachmentInfo[]; urlFor: (index: number) => string }) {
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   if (!files.length) return null;
@@ -19,7 +19,7 @@ function Attachments({ id, files }: { id: number; files: AttachmentInfo[] }) {
     setBusy(f.index);
     setError(null);
     try {
-      const res = await fetch(`/api/messages/${id}/attachments/${f.index}`, { credentials: "same-origin" });
+      const res = await fetch(urlFor(f.index), { credentials: "same-origin" });
       if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${res.status}`);
       const url = URL.createObjectURL(await res.blob());
       const a = Object.assign(document.createElement("a"), { href: url, download: f.filename });
@@ -35,8 +35,8 @@ function Attachments({ id, files }: { id: number; files: AttachmentInfo[] }) {
   };
 
   return (
-    <section className="attachments" aria-labelledby={`att-${id}`}>
-      <p className="eyebrow" id={`att-${id}`}>
+    <section className="attachments" aria-label="Attachments">
+      <p className="eyebrow">
         {files.length} attachment{files.length === 1 ? "" : "s"}
       </p>
       <ul>
@@ -167,7 +167,7 @@ export function MessageContent({ id, onChange, titleId, readMode, onLoaded }: {
       <div className="msg-body">
         {showHtml && msg.html ? <EmailFrame html={msg.html} /> : <pre className="email-text">{msg.text}</pre>}
       </div>
-      <Attachments id={msg.id} files={msg.attachments} />
+      <Attachments files={msg.attachments} urlFor={(i) => `/api/messages/${msg.id}/attachments/${i}`} />
     </article>
   );
 }
@@ -189,15 +189,14 @@ export function MessageView({ id, onChange, markRead, onRead }: { id: number; on
  * The pop-up. A native modal <dialog>: focus is trapped inside, Esc closes it, and the page behind
  * is inert. Field System: a plain sheet with a hairline border, no shadow, blur or rounding.
  */
-export function MessageDialog({ id, onClose, onChange, markRead, onRead }: {
-  id: number;
+function Sheet({ label, resetKey, onClose, full, children }: {
+  label: string;
+  resetKey: string;
   onClose: () => void;
-  onChange: () => void;
-  markRead: boolean;
-  onRead: () => void;
+  full?: { href: string; onClick: () => void };
+  children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const { readMode, onLoaded, skipOnce } = useMarkReadOnClose(id, markRead, onRead);
   const opener = useRef<Element | null>(null);
 
   useEffect(() => {
@@ -215,7 +214,7 @@ export function MessageDialog({ id, onClose, onChange, markRead, onRead }: {
 
   useEffect(() => {
     ref.current?.scrollTo({ top: 0 });
-  }, [id]);
+  }, [resetKey]);
 
   return (
     <dialog
@@ -226,13 +225,74 @@ export function MessageDialog({ id, onClose, onChange, markRead, onRead }: {
       onClick={(e) => { if (e.target === ref.current) onClose(); }} // click on the backdrop
     >
       <div className="sheet-bar">
-        <span className="coord">Email</span>
-        <IconButton icon="external" className="bare sheet-full" label="Open as full page" href={`#/messages/${id}`} onClick={skipOnce} />
+        <span className="coord">{label}</span>
+        {full && <IconButton icon="external" className="bare sheet-full" label="Open as full page" href={full.href} onClick={full.onClick} />}
         <IconButton icon="close" className="sheet-close" label="Close" onClick={onClose} />
       </div>
-      <div className="sheet-body">
-        <MessageContent id={id} onChange={onChange} titleId="sheet-title" readMode={readMode} onLoaded={onLoaded} />
-      </div>
+      <div className="sheet-body">{children}</div>
     </dialog>
+  );
+}
+
+export function MessageDialog({ id, onClose, onChange, markRead, onRead }: {
+  id: number;
+  onClose: () => void;
+  onChange: () => void;
+  markRead: boolean;
+  onRead: () => void;
+}) {
+  const { readMode, onLoaded, skipOnce } = useMarkReadOnClose(id, markRead, onRead);
+  return (
+    <Sheet label="Email" resetKey={String(id)} onClose={onClose} full={{ href: `#/messages/${id}`, onClick: skipOnce }}>
+      <MessageContent id={id} onChange={onChange} titleId="sheet-title" readMode={readMode} onLoaded={onLoaded} />
+    </Sheet>
+  );
+}
+
+/** An email opened live from any iCloud folder: read-only, not stored, not marked read. */
+function LiveMessageContent({ at }: { at: LiveRef }) {
+  const [msg, setMsg] = useState<LiveMessage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showHtml, setShowHtml] = useState(true);
+  const q = `folder=${encodeURIComponent(at.folder)}&uid=${at.uid}`;
+
+  useEffect(() => {
+    setMsg(null);
+    setError(null);
+    api.get<LiveMessage>(`/api/mail/message?${q}`).then(setMsg, (err) => setError((err as Error).message));
+  }, [q]);
+
+  if (error) return <p className="error-line" role="alert">{error}</p>;
+  if (!msg) return <p className="coord msg-loading">Opening from iCloud…</p>;
+  return (
+    <article>
+      <header className="msg-head">
+        <p className="eyebrow">{at.folderName ?? at.folder}</p>
+        <h1 id="sheet-title" tabIndex={-1}>{msg.subject || "(no subject)"}</h1>
+        <p className="coord">From {sender(msg)}{msg.fromName && msg.fromAddress ? ` <${msg.fromAddress}>` : ""}</p>
+        <p className="coord">
+          {new Date(msg.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+          {msg.attachments.length ? ` · ${msg.attachments.length} attachment${msg.attachments.length === 1 ? "" : "s"}` : ""}
+        </p>
+      </header>
+      <div className="msg-actions icon-row">
+        {msg.html && (
+          <IconButton icon="text" pressed={!showHtml} label={showHtml ? "Show plain text" : "Show formatted"} onClick={() => setShowHtml(!showHtml)} />
+        )}
+        <p className="coord read-note">Opened from iCloud. Not stored here or marked read.</p>
+      </div>
+      <div className="msg-body">
+        {showHtml && msg.html ? <EmailFrame html={msg.html} /> : <pre className="email-text">{msg.text}</pre>}
+      </div>
+      <Attachments files={msg.attachments} urlFor={(i) => `/api/mail/attachment?${q}&index=${i}`} />
+    </article>
+  );
+}
+
+export function LiveMessageDialog({ at, onClose }: { at: LiveRef; onClose: () => void }) {
+  return (
+    <Sheet label="Email · iCloud" resetKey={`${at.folder}/${at.uid}`} onClose={onClose}>
+      <LiveMessageContent at={at} />
+    </Sheet>
   );
 }

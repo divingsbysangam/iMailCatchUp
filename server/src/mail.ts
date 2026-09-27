@@ -1,4 +1,4 @@
-import { ImapFlow } from "imapflow";
+import { ImapFlow, type ImapFlowOptions } from "imapflow";
 import type { AppContext } from "./context.js";
 import { kvGet, kvSet } from "./db.js";
 import { isBulkMail } from "./trim.js";
@@ -20,7 +20,7 @@ export function syncSearchQuery(since: Date, unreadOnly: boolean): { since: Date
 /** SQL condition for rows that sync may delete when they vanish from the server. */
 const NOT_RETAINED = "archived = 0 AND brief_id IS NULL AND NOT (todo = 1 AND todo_done_at IS NULL)";
 
-export function imapClient(ctx: AppContext): ImapFlow {
+export function imapClient(ctx: AppContext, options: Partial<ImapFlowOptions> = {}): ImapFlow {
   const { config } = ctx;
   return new ImapFlow({
     host: config.IMAP_HOST,
@@ -31,6 +31,7 @@ export function imapClient(ctx: AppContext): ImapFlow {
     connectionTimeout: 30_000,
     greetingTimeout: 15_000,
     socketTimeout: 5 * 60_000,
+    ...options,
     // TLS certificate verification stays ON (the default). Never disable it.
   });
 }

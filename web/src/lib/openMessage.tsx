@@ -1,4 +1,8 @@
 import { createContext, useContext, type MouseEvent } from "react";
+import type { LiveRef } from "../api";
+
+/** Opens an email live from iCloud (Mail tab) in the pop-up. Provided by App. */
+export const OpenLiveContext = createContext<(at: LiveRef) => void>(() => {});
 
 /** Opens an email in the pop-up. Provided by App; falls back to full-page navigation. */
 export const OpenMessageContext = createContext<(id: number) => void>((id) => {

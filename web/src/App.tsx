@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type Status } from "./api";
+import { api, type LiveRef, type Status } from "./api";
 import { BriefView } from "./views/Brief";
 import { Login } from "./views/Login";
 import { Icon, type IconName } from "./lib/icons";
-import { OpenMessageContext } from "./lib/openMessage";
-import { MessageDialog, MessageView } from "./views/Message";
+import { OpenLiveContext, OpenMessageContext } from "./lib/openMessage";
+import { LiveMessageDialog, MessageDialog, MessageView } from "./views/Message";
+import { MailView } from "./views/Mail";
 import { NeedsYou } from "./views/NeedsYou";
 import { Settings } from "./views/Settings";
 import { Todos } from "./views/Todos";
@@ -26,6 +27,7 @@ const TABS: { key: string; label: string; href: string; icon: IconName }[] = [
   { key: "brief", label: "Brief", href: "#/brief", icon: "reading" },
   { key: "needs", label: "Needs you", href: "#/needs", icon: "inbox" },
   { key: "todos", label: "To-dos", href: "#/todos", icon: "mock" },
+  { key: "mail", label: "Mail", href: "#/mail", icon: "folder" },
   { key: "settings", label: "Settings", href: "#/settings", icon: "gear" },
 ];
 
@@ -37,19 +39,30 @@ export function App() {
   const viewRef = useRef<HTMLElement>(null);
   // Email pop-up. Opening pushes a history entry so the phone's Back button closes it.
   const [openId, setOpenId] = useState<number | null>(null);
+  const [openLiveAt, setOpenLiveAt] = useState<LiveRef | null>(null);
   const [version, setVersion] = useState(0);
   const pushed = useRef(false);
   const changed = useRef(false);
 
-  const openMessage = useCallback((id: number) => {
+  const pushSheet = useCallback(() => {
     if (!pushed.current) {
       history.pushState({ imcSheet: true }, "", window.location.href);
       pushed.current = true;
     }
-    setOpenId(id);
   }, []);
+  const openMessage = useCallback((id: number) => {
+    pushSheet();
+    setOpenLiveAt(null);
+    setOpenId(id);
+  }, [pushSheet]);
+  const openLive = useCallback((at: LiveRef) => {
+    pushSheet();
+    setOpenId(null);
+    setOpenLiveAt(at);
+  }, [pushSheet]);
   const finishClose = useCallback(() => {
     setOpenId(null);
+    setOpenLiveAt(null);
     if (changed.current) {
       changed.current = false;
       setVersion((v) => v + 1); // let the page behind reload (to-do marks etc.)
@@ -74,6 +87,7 @@ export function App() {
     if (!window.location.hash.startsWith("#/messages/")) return;
     pushed.current = false;
     setOpenId(null);
+    setOpenLiveAt(null);
   }, [route.join("/")]);
 
   const refreshStatus = useCallback(() => api.get<Status>("/api/status").then(setStatus, () => {}), []);
@@ -181,12 +195,16 @@ export function App() {
   if (section === "messages" && id) view = <MessageView id={Number(id)} onChange={refreshStatus} markRead={markRead} onRead={onRead} />;
   else if (section === "needs") view = <NeedsYou key={version} onChange={refreshStatus} />;
   else if (section === "todos") view = <Todos key={version} onChange={refreshStatus} />;
+  else if (section === "mail") view = <MailView />;
   else if (section === "settings") view = <Settings status={status} onSignedOut={() => setAuthed(false)} onChange={refreshStatus} />;
   else view = <BriefView status={status} briefId={section === "brief" && id ? Number(id) : null} onChange={refreshStatus} version={version} />;
   return (
     <OpenMessageContext.Provider value={openMessage}>
-      {chrome(view)}
-      {openId !== null && <MessageDialog id={openId} onClose={closeMessage} onChange={onChange} markRead={markRead} onRead={onRead} />}
+      <OpenLiveContext.Provider value={openLive}>
+        {chrome(view)}
+        {openId !== null && <MessageDialog id={openId} onClose={closeMessage} onChange={onChange} markRead={markRead} onRead={onRead} />}
+        {openLiveAt !== null && <LiveMessageDialog at={openLiveAt} onClose={closeMessage} />}
+      </OpenLiveContext.Provider>
     </OpenMessageContext.Provider>
   );
 }

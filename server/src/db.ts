@@ -98,6 +98,11 @@ const MIGRATIONS: string[] = [
   ALTER TABLE messages ADD COLUMN attachments_enc TEXT;
   ALTER TABLE messages ADD COLUMN render_v INTEGER NOT NULL DEFAULT 1;
   `,
+  `
+  -- When a "needs you" notification went out for this email. Mail already here isn't notified.
+  ALTER TABLE messages ADD COLUMN notified_at INTEGER;
+  UPDATE messages SET notified_at = 0;
+  `,
 ];
 
 export function openDb(path: string): DB {

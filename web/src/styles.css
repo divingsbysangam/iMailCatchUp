@@ -303,7 +303,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .msg-body { --email-inset: var(--gutter); margin: var(--spacing-5) calc(-1 * var(--gutter)) 0; border-top: 1px solid var(--color-border); }
 .msg-body .email-text { padding-inline: var(--email-inset); }
 .email-frame { display: block; width: 100%; border: 0; background: #fff; }
-.email-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-sans); font-size: var(--text-base); line-height: var(--leading-normal); padding-top: var(--spacing-5); max-width: var(--container-prose); }
+.email-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-sans); font-size: var(--text-base); line-height: var(--leading-normal); padding-block: var(--spacing-5); max-width: var(--container-prose); }
 .attachments { border-top: 1px solid var(--color-border); padding-top: var(--spacing-5); }
 .attachments ul { list-style: none; margin: var(--spacing-2) 0 0; padding: 0; }
 .att {
@@ -317,6 +317,26 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .att:hover .att-name { text-decoration: underline; text-underline-offset: 3px; }
 .att:disabled { cursor: progress; }
 .att:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* ---------- mail (live iCloud): search + folder picker ---------- */
+.mail-tools { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--spacing-4); margin-bottom: var(--spacing-5); }
+.search-box { display: flex; flex: 1 1 320px; min-width: 0; }
+.search-box input {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: var(--text-base); padding: 0 var(--spacing-4); height: 40px;
+  border: 1px solid var(--color-border); border-right: 0; border-radius: var(--radius-none); background: var(--color-background); color: var(--color-foreground);
+}
+.search-box input:hover { border-color: var(--color-muted); }
+.search-box input:focus-visible { outline-offset: -2px; }
+.search-box input::-webkit-search-cancel-button { display: none; }
+.mail-selects { display: flex; gap: var(--spacing-4); flex-wrap: wrap; }
+.select { display: flex; flex-direction: column; gap: var(--spacing-1); }
+.select select {
+  font: inherit; font-size: var(--text-sm); height: 40px; padding: 0 var(--spacing-8) 0 var(--spacing-3); max-width: 240px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-none); background: var(--color-background); color: var(--color-foreground);
+}
+.unread-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); margin-right: var(--spacing-2); vertical-align: 1px; }
+.row.read .who { font-weight: var(--font-weight-regular); }
+.empty-note { padding: var(--spacing-6) 0; }
 
 /* ---------- forms ---------- */
 .field { display: flex; flex-direction: column; gap: var(--spacing-2); margin-top: var(--spacing-5); max-width: 420px; }
@@ -447,3 +467,9 @@ dialog.sheet::backdrop { background: rgba(20, 20, 19, 0.55); }
 .icon-btn.bare:hover { border-color: var(--color-border); }
 .push-right { margin-left: auto; }
 .icon-row { display: flex; align-items: center; gap: var(--spacing-2); flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .mail-tools { gap: var(--spacing-3); }
+  .mail-selects { width: 100%; gap: var(--spacing-3); }
+  .mail-selects .select { flex: 1 1 0; min-width: 0; }
+  .select select { max-width: none; width: 100%; }
+}
