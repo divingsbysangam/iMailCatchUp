@@ -1,5 +1,6 @@
 import type { AppContext } from "./context.js";
 import { archiveBriefMail, flushSeen, syncMail } from "./mail.js";
+import { notifyNeedsYou } from "./notify.js";
 import { triageMessages } from "./triage.js";
 
 export interface RefreshResult {
@@ -30,6 +31,11 @@ export function refreshMail(ctx: AppContext): Promise<RefreshResult> {
       triaged = (await triageMessages(ctx)).triaged;
     } catch (err) {
       ctx.log.error({ err }, "triage failed");
+    }
+    try {
+      await notifyNeedsYou(ctx);
+    } catch (err) {
+      ctx.log.error({ err }, "needs-you notification failed");
     }
     try {
       archived = (await archiveBriefMail(ctx)).moved;

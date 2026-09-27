@@ -1,10 +1,11 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import type { BriefContentV2, BriefItem } from "./brief.js";
 import { categoryLabel, slotLabel } from "./categories.js";
 import type { AppContext } from "./context.js";
 import { kvGet } from "./db.js";
 import { ImageProxyError, fetchImage } from "./imageproxy.js";
+import { getLiveAttachment, getLiveMessage, listFolder, listFolders, NotFoundError, searchMail } from "./live.js";
 import { fetchSource, flushSeen, type StoredLocation } from "./mail.js";
 import { refreshMail } from "./pipeline.js";
 import { sendPushToAll } from "./push.js";
@@ -16,6 +17,12 @@ const IdParam = z.object({ id: z.coerce.number().int().positive() });
 const REFRESH_TIMEOUT_MS = 8_000;
 const AttachmentParam = IdParam.extend({ index: z.coerce.number().int().min(0).max(500) });
 const ImageQuery = z.object({ u: z.string().min(1).max(4096) });
+// IMAP folder names are quoted/encoded by imapflow; this only rejects junk.
+const Folder = z.string().min(1).max(255).regex(/^[^\u0000-\u001f\u007f]+$/);
+const LiveListQuery = z.object({ folder: Folder.default("INBOX"), offset: z.coerce.number().int().min(0).max(1_000_000).default(0) });
+const LiveSearchQuery = z.object({ q: z.string().trim().min(2).max(100), folder: Folder.optional() });
+const LiveMessageQuery = z.object({ folder: Folder, uid: z.coerce.number().int().positive() });
+const LiveAttachmentQuery = LiveMessageQuery.extend({ index: z.coerce.number().int().min(0).max(500) });
 const DateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const ListQuery = z.object({
@@ -198,14 +205,65 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
       const file = view.files[p.data.index];
       const info = attachmentList(view)[p.data.index];
       if (!file || !info) return reply.code(404).send({ error: "Attachment not found" });
-      return reply
-        .header("Content-Type", downloadType(file.contentType))
-        .header("Content-Disposition", contentDisposition(info.filename))
-        .header("X-Content-Type-Options", "nosniff")
-        .header("Content-Security-Policy", "default-src 'none'; sandbox")
-        .send(file.content);
+      return sendAttachment(reply, file.contentType, info.filename, file.content);
     },
   );
+
+  // ---- Live, read-only iCloud access: folders, search, open (see live.ts) ----
+  const liveError = (req: { log: { warn: (o: object, m: string) => void } }, reply: FastifyReply, err: unknown) => {
+    if (err instanceof NotFoundError) return reply.code(404).send({ error: err.message });
+    req.log.warn({ err: (err as Error).message }, "iCloud request failed");
+    return reply.code(502).send({ error: "Couldn't reach iCloud. Try again." });
+  };
+
+  app.get("/api/mail/folders", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
+    try {
+      return { folders: await listFolders(ctx) };
+    } catch (err) {
+      return liveError(req, reply, err);
+    }
+  });
+
+  app.get("/api/mail/list", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const q = LiveListQuery.safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: "Bad request" });
+    try {
+      return await listFolder(ctx, q.data.folder, q.data.offset);
+    } catch (err) {
+      return liveError(req, reply, err);
+    }
+  });
+
+  app.get("/api/mail/search", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const q = LiveSearchQuery.safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: "Type at least 2 characters." });
+    try {
+      return await searchMail(ctx, q.data.q, q.data.folder);
+    } catch (err) {
+      return liveError(req, reply, err);
+    }
+  });
+
+  app.get("/api/mail/message", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const q = LiveMessageQuery.safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: "Bad request" });
+    try {
+      return await getLiveMessage(ctx, q.data.folder, q.data.uid);
+    } catch (err) {
+      return liveError(req, reply, err);
+    }
+  });
+
+  app.get("/api/mail/attachment", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const q = LiveAttachmentQuery.safeParse(req.query);
+    if (!q.success) return reply.code(400).send({ error: "Bad request" });
+    try {
+      const { file, info } = await getLiveAttachment(ctx, q.data.folder, q.data.uid, q.data.index);
+      return sendAttachment(reply, file.contentType, info.filename, file.content);
+    } catch (err) {
+      return liveError(req, reply, err);
+    }
+  });
 
   /** Private image proxy for remote images in emails (see imageproxy.ts). */
   app.get("/api/img", { config: { rateLimit: { max: 600, timeWindow: "1 minute" } } }, async (req, reply) => {
@@ -423,4 +481,14 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post("/api/push/test", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async () =>
     sendPushToAll(ctx, { title: "Surface", body: "Notifications are working.", url: "/#/settings", tag: "test" }),
   );
+}
+
+/** Attachments are always downloads; active types (HTML, SVG…) never render on this origin. */
+function sendAttachment(reply: FastifyReply, contentType: string | undefined, filename: string, content: Buffer) {
+  return reply
+    .header("Content-Type", downloadType(contentType))
+    .header("Content-Disposition", contentDisposition(filename))
+    .header("X-Content-Type-Options", "nosniff")
+    .header("Content-Security-Policy", "default-src 'none'; sandbox")
+    .send(content);
 }

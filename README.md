@@ -60,7 +60,9 @@ Briefs arrive at each of `BRIEF_TIMES`. If the server was down at a brief time, 
 ### How mail is handled
 
 - Every new unread email is **screened** by the AI: mail from people expecting a reply goes to **Needs you**; everything else (bills, receipts, calendar, newsletters, notifications…) waits for the next **brief**, grouped by category with a one-line summary.
+- New mail is picked up within about a minute (`IMAP_IDLE`), and you get a notification straight away when an email needs you (`NEEDS_YOU_PUSH`).
 - Mark anything as a **to-do**; it stays on the To-dos page until you tick it off.
+- **Mail** tab: browse any iCloud folder and search your whole mailbox, live and read-only. Nothing from it is stored, sent to the AI or marked read.
 - With `MARK_READ_ON_OPEN=true`, closing an email you opened marks it read in iCloud and removes the app's copy
   (press **Keep unread** first to leave it alone; open to-dos stay). If iCloud is unreachable the change is queued
   and retried on the next sync.
@@ -124,7 +126,6 @@ npm test
 
 - No sending or replying (by design for now); archiving and marking read are opt-in (`AUTO_ARCHIVE`, `MARK_READ_ON_OPEN`)
 - Web Push on Android needs Chrome (or another browser with Push API support)
-- Messages are synced every `SYNC_INTERVAL_MINUTES`, not instantly
 
 ## License
 

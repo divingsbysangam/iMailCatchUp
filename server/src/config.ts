@@ -67,6 +67,10 @@ const schema = z.object({
   BRIEF_BULK_CHARS: z.coerce.number().int().min(0).max(4000).default(800),
   /** When false, the notification only says a brief is ready (nothing about content on the lock screen). */
   BRIEF_PUSH_PREVIEW: bool.default(true),
+  /** Watch the inbox with IMAP IDLE so new mail is synced and screened within about a minute. */
+  IMAP_IDLE: bool.default(true),
+  /** Notify right away when new mail is screened as needing you (uses BRIEF_PUSH_PREVIEW for content). */
+  NEEDS_YOU_PUSH: bool.default(true),
 
   /** Output of `npm run setup`. */
   APP_PASSWORD_HASH: z.string().startsWith("scrypt:"),

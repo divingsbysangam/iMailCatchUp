@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { openDb } from "./db.js";
+import { startIdleWatcher } from "./idle.js";
 import { startScheduler } from "./scheduler.js";
 
 const config = loadConfig();
@@ -10,10 +11,12 @@ const webRoot = process.env.WEB_ROOT ?? fileURLToPath(new URL("../../web/dist", 
 
 const { app, ctx } = await buildApp({ config, db, webRoot });
 const stopScheduler = startScheduler(ctx);
+const stopIdle = config.IMAP_IDLE ? startIdleWatcher(ctx) : () => {};
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, "shutting down");
   stopScheduler();
+  stopIdle();
   await app.close();
   db.close();
   process.exit(0);

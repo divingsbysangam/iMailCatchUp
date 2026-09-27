@@ -50,6 +50,39 @@ export interface AttachmentInfo {
   size: number;
 }
 
+export interface FolderInfo {
+  path: string;
+  name: string;
+  specialUse: string | null;
+  messages: number | null;
+  unseen: number | null;
+}
+
+export interface LiveSummary {
+  folder: string;
+  uid: number;
+  fromName: string | null;
+  fromAddress: string | null;
+  subject: string | null;
+  date: number;
+  seen: boolean;
+  flagged: boolean;
+}
+
+export interface LiveMessage extends LiveSummary {
+  to: { name?: string; address?: string }[];
+  html: string | null;
+  text: string | null;
+  attachments: AttachmentInfo[];
+}
+
+/** Where an email lives in iCloud, for opening it live. */
+export interface LiveRef {
+  folder: string;
+  uid: number;
+  folderName?: string;
+}
+
 export interface MessageDetail extends MessageSummary {
   mailbox: string;
   to: { name?: string; address?: string }[];
