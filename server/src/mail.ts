@@ -99,7 +99,13 @@ async function doSync(ctx: AppContext): Promise<SyncResult> {
         }
 
         // Download new messages.
-        const fresh = [...remoteUids].filter((u) => !localUids.has(u));
+        // Skip mail read in the app that iCloud hasn't been told about yet (see flushSeen).
+        const pending = new Set(
+          (db.prepare("SELECT uid FROM pending_seen WHERE mailbox = ? AND uid_validity = ?").all(mailbox, uidValidity) as { uid: number }[]).map(
+            (r) => r.uid,
+          ),
+        );
+        const fresh = [...remoteUids].filter((u) => !localUids.has(u) && !pending.has(u));
         const insert = db.prepare(`
           INSERT OR IGNORE INTO messages
             (mailbox, uid_validity, uid, message_id, from_name, from_address, to_json,
@@ -228,4 +234,47 @@ export async function archiveBriefMail(ctx: AppContext): Promise<{ moved: number
   }
   log.info({ moved, folder: config.ARCHIVE_FOLDER }, "archived brief mail");
   return { moved };
+}
+
+/**
+ * MARK_READ_ON_OPEN: sets \\Seen in iCloud on every email read in the app (queued in pending_seen).
+ * Entries whose mailbox was reset (UIDVALIDITY changed) are dropped; failures stay queued for next time.
+ */
+export async function flushSeen(ctx: AppContext): Promise<{ marked: number }> {
+  const { db, log } = ctx;
+  const rows = db.prepare("SELECT mailbox, uid_validity, uid FROM pending_seen").all() as {
+    mailbox: string;
+    uid_validity: string;
+    uid: number;
+  }[];
+  if (!rows.length) return { marked: 0 };
+
+  const client = imapClient(ctx);
+  let marked = 0;
+  try {
+    await client.connect();
+    const byMailbox = new Map<string, typeof rows>();
+    for (const r of rows) byMailbox.set(r.mailbox, [...(byMailbox.get(r.mailbox) ?? []), r]);
+    const del = db.prepare("DELETE FROM pending_seen WHERE mailbox = ? AND uid_validity = ? AND uid = ?");
+    for (const [mailbox, list] of byMailbox) {
+      const lock = await client.getMailboxLock(mailbox); // read-write: needed to set flags
+      try {
+        if (!client.mailbox) continue;
+        const uidValidity = client.mailbox.uidValidity.toString();
+        const valid = list.filter((r) => r.uid_validity === uidValidity);
+        if (valid.length) await client.messageFlagsAdd(valid.map((r) => r.uid).join(","), ["\\Seen"], { uid: true });
+        db.transaction(() => list.forEach((r) => del.run(r.mailbox, r.uid_validity, r.uid)))();
+        marked += valid.length;
+      } finally {
+        lock.release();
+      }
+    }
+    await client.logout();
+  } catch (err) {
+    client.close();
+    log.error({ err }, "marking read in iCloud failed; will retry");
+    throw err;
+  }
+  log.info({ marked }, "marked read in iCloud");
+  return { marked };
 }

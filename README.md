@@ -59,6 +59,9 @@ Briefs arrive at each of `BRIEF_TIMES`. If the server was down at a brief time, 
 
 - Every new unread email is **screened** by the AI: mail from people expecting a reply goes to **Needs you**; everything else (bills, receipts, calendar, newsletters, notifications…) waits for the next **brief**, grouped by category with a one-line summary.
 - Mark anything as a **to-do**; it stays on the To-dos page until you tick it off.
+- With `MARK_READ_ON_OPEN=true`, closing an email you opened marks it read in iCloud and removes the app's copy
+  (press **Keep unread** first to leave it alone; open to-dos stay). If iCloud is unreachable the change is queued
+  and retried on the next sync.
 - With `AUTO_ARCHIVE=true`, brief-bound mail is also marked read and moved to `ARCHIVE_FOLDER` in iCloud, so your iCloud inbox only holds what needs you. This gives the app write access to your mailbox; only mail received after you switch it on is moved.
 You can also tap **Brief me now** on the Briefs tab.
 
@@ -87,6 +90,7 @@ See [`.env.example`](.env.example) for every variable. Highlights:
 | `OPENAI_MODEL` | `gpt-5-mini` | Any chat-completions model that supports JSON mode |
 | `BRIEF_TIMES` / `BRIEF_TIMEZONE` | `BRIEF_TIME` (19:00) / `UTC` | Comma-separated 24h times, IANA time zone |
 | `AUTO_ARCHIVE` / `ARCHIVE_FOLDER` | `false` / `iMailCatchUp Brief` | Move brief-bound mail out of the iCloud inbox |
+| `MARK_READ_ON_OPEN` | `false` | Closing an email marks it read in iCloud and removes the app's copy |
 | `MAILBOXES` | `INBOX` | Comma-separated IMAP folders |
 | `SYNC_DAYS` | `14` | How much mail is kept locally |
 | `SYNC_UNREAD_ONLY` | `true` | Only unread mail is synced; mail you read elsewhere is removed on the next sync |

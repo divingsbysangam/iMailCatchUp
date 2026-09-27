@@ -32,6 +32,11 @@ const schema = z.object({
    * inbox to ARCHIVE_FOLDER in iCloud. Needs write access to the mailbox; off by default.
    */
   AUTO_ARCHIVE: bool.default(false),
+  /**
+   * When you close an email in the app, mark it read in iCloud and remove the app's copy (open to-dos
+   * are kept). Needs write access to the mailbox; off by default.
+   */
+  MARK_READ_ON_OPEN: bool.default(false),
   ARCHIVE_FOLDER: z.string().min(1).max(100).default("iMailCatchUp Brief"),
 
   OPENAI_API_KEY: z.string().min(1),
