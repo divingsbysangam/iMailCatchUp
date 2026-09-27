@@ -66,6 +66,7 @@ export interface BriefDetail {
     summary: string;
     highlights: { emailId: number; priority: "high" | "medium" | "low"; why: string }[];
     actionItems: { task: string; emailId?: number | null; due?: string | null }[];
+    newsletters: { emailId: number; summary: string }[];
   };
   emails: Record<string, { fromName: string | null; fromAddress: string | null; subject: string | null }>;
 }

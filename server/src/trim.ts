@@ -35,12 +35,35 @@ function cutAtFirst(text: string, markers: RegExp[]): string {
   return text.slice(0, cut);
 }
 
+// Newsletter boilerplate. Lines matching these are dropped wherever they appear.
+const BOILERPLATE_LINE =
+  /^.{0,40}\b(?:view (?:this (?:email|message) )?(?:in (?:your|a) )?(?:browser|online)|view as (?:a )?web ?page|trouble (?:viewing|reading) this|open in (?:your )?browser|add us to your address book|forward (?:this|to a friend)|share this (?:email|newsletter)|sponsored by|advertisement)\b.{0,80}$/gim;
+// Where the newsletter footer starts. Everything from here down is cut.
+const FOOTER_MARKERS: RegExp[] = [
+  /^.{0,80}\b(?:unsubscribe|opt[ -]out|manage (?:your )?(?:email |subscription |notification )?(?:preferences|settings|subscriptions?)|update (?:your )?(?:email )?preferences|email preferences)\b/im,
+  /^.{0,40}\byou(?:'re| are) receiving this\b/im,
+  /^.{0,40}\b(?:this email was sent to|you received this (?:email|message) because)\b/im,
+  /^\s*(?:©|\(c\)|copyright\b).{0,120}$/im,
+  /^.{0,80}\ball rights reserved\b/im,
+];
+
+export interface TrimOptions {
+  /** Also strip newsletter boilerplate ("view in browser", unsubscribe footers, ©). */
+  newsletter?: boolean;
+}
+
 /**
- * Removes quoted reply history, "> " quoted lines, signatures, mobile footers and URLs,
- * collapses whitespace and truncates to `maxChars` on a word boundary.
+ * Removes quoted reply history, "> " quoted lines, signatures, mobile footers and URLs
+ * (plus newsletter boilerplate when asked), collapses whitespace and truncates to
+ * `maxChars` on a word boundary.
  */
-export function trimBody(raw: string, maxChars: number): string {
+export function trimBody(raw: string, maxChars: number, opts: TrimOptions = {}): string {
+  if (maxChars <= 0) return "";
   let text = raw.replace(/\r\n?/g, "\n");
+  if (opts.newsletter) {
+    text = text.replace(BOILERPLATE_LINE, "");
+    text = cutAtFirst(text, FOOTER_MARKERS);
+  }
   text = cutAtFirst(text, REPLY_MARKERS);
   text = text
     .split("\n")

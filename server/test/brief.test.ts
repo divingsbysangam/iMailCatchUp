@@ -12,10 +12,20 @@ describe("parseBrief", () => {
         { emailId: 999, priority: "low", why: "made up" },
       ],
       actionItems: [{ task: "t", emailId: 999, due: null }],
+      newsletters: [
+        { emailId: 1, summary: "real" },
+        { emailId: 999, summary: "made up" },
+      ],
     });
     const b = parseBrief(raw, new Set([1]));
     expect(b.highlights.map((h) => h.emailId)).toEqual([1]);
+    expect(b.newsletters.map((n) => n.emailId)).toEqual([1]);
     expect(b.actionItems[0]!.emailId).toBeNull();
+  });
+
+  it("accepts briefs stored before the newsletters field existed", () => {
+    const b = parseBrief(JSON.stringify({ headline: "h", summary: "", highlights: [], actionItems: [] }), new Set());
+    expect(b.newsletters).toEqual([]);
   });
 
   it("rejects malformed output", () => {
@@ -81,7 +91,12 @@ describe("generateBrief", async () => {
     );
     db.prepare(
       "INSERT INTO messages (mailbox, uid_validity, uid, from_address, subject_enc, text_enc, date, is_bulk, synced_at) VALUES ('INBOX','1',2,'deals@shop.com',?,?,?,1,?)",
-    ).run(cipher.encrypt("50% off sale"), cipher.encrypt("Huge marketing body ".repeat(200)), Date.now() - 2000, Date.now());
+    ).run(
+      cipher.encrypt("50% off sale"),
+      cipher.encrypt("View this email in your browser\nAutumn sale: everything half price until Sunday. " + "More details here. ".repeat(100) + "\nUnsubscribe | Manage preferences\n© 2026 Shop Inc."),
+      Date.now() - 2000,
+      Date.now(),
+    );
 
     let prompt = "";
     const fakeOpenAI = {
@@ -92,7 +107,19 @@ describe("generateBrief", async () => {
             return {
               model: "fake-model",
               usage: { prompt_tokens: 321, completion_tokens: 45 },
-              choices: [{ message: { content: JSON.stringify({ headline: "Invoice due Friday", summary: "One invoice.", highlights: [{ emailId: 1, priority: "high", why: "Payment" }], actionItems: [] }) } }],
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      headline: "Invoice due Friday",
+                      summary: "One invoice.",
+                      highlights: [{ emailId: 1, priority: "high", why: "Payment" }],
+                      actionItems: [],
+                      newsletters: [{ emailId: 2, summary: "Autumn sale, half price until Sunday." }],
+                    }),
+                  },
+                },
+              ],
             };
           },
         },
@@ -103,8 +130,13 @@ describe("generateBrief", async () => {
     expect(prompt).toContain('"body":"Pay by Friday at [link]"'); // quoted thread + URL removed
     expect(prompt).toContain('"subject":"50% off sale"');
     expect(prompt).toContain('"bulk":true');
-    expect(prompt).not.toContain("Huge marketing body"); // newsletter body never sent
-    expect(content.highlights).toHaveLength(1);
+    // Newsletter body is sent, minus boilerplate, capped at BRIEF_BULK_CHARS (800).
+    const sent = JSON.parse(prompt.split("\n").at(-1)!) as { id: number; body?: string }[];
+    const newsletterBody = sent.find((e) => e.id === 2)!.body!;
+    expect(newsletterBody.startsWith("Autumn sale: everything half price until Sunday.")).toBe(true);
+    expect(newsletterBody.length).toBeLessThanOrEqual(801);
+    expect(newsletterBody).not.toMatch(/View this email|Unsubscribe|©/);    expect(content.highlights).toHaveLength(1);
+    expect(content.newsletters).toEqual([{ emailId: 2, summary: "Autumn sale, half price until Sunday." }]);
     expect(content.summary).toMatch(/^⚠ Couldn't reach iCloud/);
     const row = db.prepare("SELECT content_enc, model, input_tokens, output_tokens FROM briefs WHERE id = ?").get(id) as {
       content_enc: string;

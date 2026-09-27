@@ -115,10 +115,17 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!p.success) return reply.code(400).send({ error: "Bad id" });
     const r = db.prepare("SELECT * FROM briefs WHERE id = ?").get(p.data.id) as Record<string, unknown> | undefined;
     if (!r) return reply.code(404).send({ error: "Not found" });
-    const content = JSON.parse(cipher.decrypt(r.content_enc as string)) as BriefContent;
+    // Parse through the schema so briefs stored before a field existed get its default.
+    const content = BriefContent.parse(JSON.parse(cipher.decrypt(r.content_enc as string)));
 
     // Attach sender/subject for referenced emails that are still stored locally.
-    const ids = [...new Set([...content.highlights.map((h) => h.emailId), ...content.actionItems.flatMap((a) => (a.emailId ? [a.emailId] : []))])];
+    const ids = [
+      ...new Set([
+        ...content.highlights.map((h) => h.emailId),
+        ...content.actionItems.flatMap((a) => (a.emailId ? [a.emailId] : [])),
+        ...content.newsletters.map((n) => n.emailId),
+      ]),
+    ];
     const emails: Record<number, { fromName: unknown; fromAddress: unknown; subject: string | null }> = {};
     const stmt = db.prepare("SELECT id, from_name, from_address, subject_enc FROM messages WHERE id = ?");
     for (const id of ids) {

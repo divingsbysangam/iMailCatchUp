@@ -32,7 +32,7 @@ An iCloud **app-specific password** grants full IMAP/SMTP access to your mailbox
 ## What you are trusting
 
 - **Railway** hosts the container, env vars and volume. They can technically access them.
-- **OpenAI** receives the sender, subject and a trimmed excerpt (quoted replies, signatures and links removed; max `BRIEF_BODY_CHARS`, default 800 characters) of each email in the brief window. For newsletters and automated notifications, only the sender and subject.
+- **OpenAI** receives the sender, subject and a trimmed excerpt (quoted replies, signatures and links removed; max `BRIEF_BODY_CHARS`, default 800 characters) of each email in the brief window. Newsletters and automated notifications are sent the same way, with their boilerplate removed (max `BRIEF_BULK_CHARS`, default 800).
   Under OpenAI's API terms, API data isn't used for training by default, but it may be retained for a period for abuse monitoring.
   Check their current policy; if that's not acceptable, don't enable briefs.
 - **Google (FCM)** delivers push messages for Android Chrome but can't read the encrypted payload.

@@ -106,6 +106,21 @@ export function BriefView({ id }: { id: number }) {
           </ul>
         </>
       )}
+      {content.newsletters.length > 0 && (
+        <>
+          <h2>Newsletters</h2>
+          <ul className="list">
+            {content.newsletters.map((n) => (
+              <li key={n.emailId}>
+                <a href={emails[n.emailId] ? `#/messages/${n.emailId}` : undefined}>
+                  <div className="subject">{emailLabel(n.emailId)}</div>
+                  <div className="snippet">{n.summary}</div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <p className="muted small">
         {brief.messageCount} emails summarised{brief.model ? ` by ${brief.model}` : ""}
         {brief.inputTokens != null && ` (${brief.inputTokens.toLocaleString()} in / ${(brief.outputTokens ?? 0).toLocaleString()} out tokens)`}. AI summaries can be wrong — check the original email before acting.

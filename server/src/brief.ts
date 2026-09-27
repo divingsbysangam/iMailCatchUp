@@ -29,6 +29,11 @@ export const BriefContent = z.object({
       }),
     )
     .max(50),
+  // Older briefs were stored without this field.
+  newsletters: z
+    .array(z.object({ emailId: z.number().int(), summary: z.string().max(600) }))
+    .max(100)
+    .default([]),
 });
 export type BriefContent = z.infer<typeof BriefContent>;
 
@@ -37,7 +42,7 @@ export interface EmailForBrief {
   from: string;
   subject: string;
   date: string;
-  /** Trimmed body; omitted for newsletters/notifications to save tokens. */
+  /** Trimmed body; omitted when BRIEF_BULK_CHARS=0 for newsletters/notifications. */
   body?: string;
   bulk?: true;
 }
@@ -55,12 +60,16 @@ Output: a single JSON object, no markdown, with exactly these keys:
   "headline": string,            // one sentence, max ~120 chars, suitable for a phone notification
   "summary": string,             // 2-5 short sentences on what matters today
   "highlights": [ { "emailId": number, "priority": "high"|"medium"|"low", "why": string } ],
-  "actionItems": [ { "task": string, "emailId": number|null, "due": string|null } ]
+  "actionItems": [ { "task": string, "emailId": number|null, "due": string|null } ],
+  "newsletters": [ { "emailId": number, "summary": string } ]
 }
-Emails with "bulk": true are newsletters/notifications; only their sender and subject are given.
-Bodies are shortened (quoted replies, signatures and links removed; "[link]" marks a removed URL).
-Include only emails worth attention in "highlights" (skip newsletters/promotions unless notable).
-Order highlights by priority. Keep "why" to one sentence.`;
+Emails with "bulk": true are newsletters, promotions or automated notifications.
+Bodies are shortened (quoted replies, signatures, links and newsletter boilerplate removed;
+"[link]" marks a removed URL), so an excerpt may end mid-way.
+- "highlights": emails that need the person's attention, ordered by priority, "why" in one sentence.
+  Bulk emails belong here only if they need action (e.g. a bill, a security alert, a delivery problem).
+- "newsletters": every bulk email that is not in "highlights", each with a one-sentence summary of
+  what it actually says (the key news or offer). If a bulk email has no body, summarise from its subject.`;
 
 /** Pure: builds the user message. Exported for tests. */
 export function buildUserPrompt(emails: EmailForBrief[], timezone: string): string {
@@ -77,6 +86,7 @@ export function parseBrief(raw: string, validIds: Set<number>): BriefContent {
   return {
     ...content,
     highlights: content.highlights.filter((h) => validIds.has(h.emailId)),
+    newsletters: content.newsletters.filter((n) => validIds.has(n.emailId)),
     actionItems: content.actionItems.map((a) =>
       a.emailId != null && !validIds.has(a.emailId) ? { ...a, emailId: null } : a,
     ),
@@ -119,15 +129,19 @@ export async function generateBrief(
       date: new Date(r.date).toLocaleString("en-GB", { timeZone: config.BRIEF_TIMEZONE }),
     };
     // Sender check too, for mail synced before bulk detection existed.
-    if (r.is_bulk === 1 || isBulkMail(null, r.from_address)) return { ...base, bulk: true as const };
-    return { ...base, body: trimBody(cipher.decryptNullable(r.text_enc) ?? "", config.BRIEF_BODY_CHARS) };
+    const text = cipher.decryptNullable(r.text_enc) ?? "";
+    if (r.is_bulk === 1 || isBulkMail(null, r.from_address)) {
+      const body = trimBody(text, config.BRIEF_BULK_CHARS, { newsletter: true });
+      return { ...base, bulk: true as const, ...(body ? { body } : {}) };
+    }
+    return { ...base, body: trimBody(text, config.BRIEF_BODY_CHARS) };
   });
 
   let content: BriefContent;
   let model: string | null = null;
   let usage: { input: number; output: number } | null = null;
   if (emails.length === 0) {
-    content = { headline: "No new mail since your last brief.", summary: "", highlights: [], actionItems: [] };
+    content = { headline: "No new mail since your last brief.", summary: "", highlights: [], actionItems: [], newsletters: [] };
   } else {
     const res = await openai.chat.completions.create({
       model: config.OPENAI_MODEL,

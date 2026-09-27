@@ -29,6 +29,26 @@ describe("trimBody", () => {
     expect(trimBody(raw, 800)).toBe("Invoice attached, due Friday. Pay at [link] or [link]");
   });
 
+  it("strips newsletter boilerplate and footer only in newsletter mode", () => {
+    const raw = [
+      "View this email in your browser",
+      "Weekly Tech Digest",
+      "Apple announced new MacBooks with a faster chip and longer battery life.",
+      "Forward to a friend",
+      "You're receiving this because you subscribed at example.com.",
+      "Unsubscribe | Update your preferences",
+      "© 2026 Digest Media. All rights reserved.",
+    ].join("\n");
+    expect(trimBody(raw, 800, { newsletter: true })).toBe(
+      "Weekly Tech Digest Apple announced new MacBooks with a faster chip and longer battery life.",
+    );
+    expect(trimBody(raw, 800)).toContain("Unsubscribe");
+  });
+
+  it("returns nothing when the limit is 0", () => {
+    expect(trimBody("anything", 0, { newsletter: true })).toBe("");
+  });
+
   it("truncates on a word boundary", () => {
     const out = trimBody("word ".repeat(300), 100);
     expect(out.length).toBeLessThanOrEqual(101);
