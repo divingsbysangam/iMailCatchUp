@@ -1,0 +1,54 @@
+name: Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problem? Don't file it here; see [SECURITY.md](../blob/main/SECURITY.md).
+        Never paste passwords, keys, `.env` values or real email content.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Tap ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v1.0.0 or a commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: hosting
+    attributes:
+      label: Where is it running?
+      options:
+        - Railway
+        - Other Docker host
+        - Local development
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Device and browser
+      placeholder: e.g. Pixel 8, Chrome 140, installed as app
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server logs
+      description: Relevant log lines. Check they contain no secrets before pasting.
+      render: shell
