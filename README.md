@@ -9,6 +9,16 @@ Self-hosted, single-user **iCloud Mail reader** with an **AI screener** and **tw
 - 🔔 Web Push notification when the brief is ready
 - 🔒 Password + authenticator-app login, encrypted storage, read-only mailbox access. See [SECURITY.md](SECURITY.md)
 
+## Screenshots
+
+<!-- Screenshots go here once added to docs/screenshots (see docs/screenshots/README.md).
+<p>
+  <img src="docs/screenshots/inbox.png" alt="Inbox with the Needs you list" width="260">
+  <img src="docs/screenshots/brief.png" alt="Evening brief with highlights and to-dos" width="260">
+  <img src="docs/screenshots/notification.png" alt="Brief push notification on Android" width="260">
+</p>
+-->
+
 ```
 iCloud IMAP ──(read-only, TLS)──▶ Server (Node/Fastify) ──▶ SQLite (encrypted fields)
                                     │  every 10 min: sync
@@ -113,6 +123,8 @@ in the brief's **Newsletters** section.
 Each brief records the tokens it used; you can see them at the bottom of the brief and in the server logs.
 
 ## Local development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to propose changes.
 
 ```bash
 npm ci
