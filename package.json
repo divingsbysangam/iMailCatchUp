@@ -1,6 +1,6 @@
 {
   "name": "imailcatchup",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Self-hosted iCloud Mail reader with evening AI briefs and web push, for a single user.",
   "license": "MIT",
