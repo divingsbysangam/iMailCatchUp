@@ -134,7 +134,7 @@ npm run dev:web        # PWA on :5173 (proxies /api)
 npm test
 ```
 
-## Limitations (v0.1)
+## Limitations (v1.0)
 
 - No sending or replying (by design for now); archiving and marking read are opt-in (`AUTO_ARCHIVE`, `MARK_READ_ON_OPEN`)
 - Web Push on Android needs Chrome (or another browser with Push API support)
