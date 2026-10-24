@@ -12,25 +12,25 @@
     "setup": "tsx src/scripts/setup.ts"
   },
   "dependencies": {
-    "@fastify/cookie": "^11.1.2",
-    "@fastify/helmet": "^13.1.1",
-    "@fastify/rate-limit": "^11.2.0",
-    "@fastify/static": "^10.1.5",
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.6",
     "better-sqlite3": "^13.0.3",
-    "fastify": "^5.12.5",
-    "imapflow": "^2.2.6",
-    "mailparser": "^3.9.36",
-    "openai": "^7.30.0",
+    "fastify": "^5.12.7",
+    "imapflow": "^2.5.9",
+    "mailparser": "^3.10.0",
+    "openai": "^7.39.0",
     "web-push": "^3.6.7",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/mailparser": "^3.9.0",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/web-push": "^3.6.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   }
 }
